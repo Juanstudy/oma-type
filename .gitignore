@@ -1,0 +1,12 @@
+# Dependencies & tooling caches
+node_modules/
+.atl/
+*.log
+
+# System & editor files
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.vscode/
+.idea/
