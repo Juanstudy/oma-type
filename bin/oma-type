@@ -1,0 +1,144 @@
+#!/bin/bash
+# oma-type: CLI for the Oma Type plugin inside omarchy-shell
+
+set -uo pipefail
+
+PLUGIN_ID="juancasanueva.oma-type"
+IPC_TARGET="oma-type"
+
+self=$(readlink -f "${BASH_SOURCE[0]}")
+repo=$(cd "$(dirname "$self")/.." && pwd)
+plugins_dir="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/plugins"
+plugin_link="$plugins_dir/$PLUGIN_ID"
+apps_dir="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+
+installed_links() {
+  local link
+  for link in "$plugin_link" "$plugin_link".dev-*; do
+    [[ -L $link && $(readlink -f "$link") == "$repo" ]] && printf '%s\n' "$link"
+  done
+}
+
+current_link() { installed_links | tail -n1; }
+
+usage() {
+  cat <<USAGE
+Usage: oma-type <command>
+
+App
+  toggle                 Show or hide the typing test overlay
+  show | hide            Show or hide the overlay
+  reset                  Reset the current typing test
+  ping                   Ping the IPC target
+
+Setup
+  install                Link plugin into omarchy-shell and install .desktop entry
+  uninstall              Disable and unlink the plugin
+  reload                 Force reload plugin in omarchy-shell (bypasses cache)
+  doctor                 Check status of shell, plugin, and IPC
+USAGE
+}
+
+die() { echo "oma-type: $*" >&2; exit 1; }
+
+ipc() { omarchy-shell "$IPC_TARGET" "$@"; }
+
+need_shell() {
+  command -v omarchy-shell >/dev/null || die "omarchy-shell not found; oma-type runs inside Omarchy shell"
+}
+
+cmd_install() {
+  need_shell
+  [[ -f $repo/manifest.json ]] || die "manifest.json missing at $repo"
+
+  mkdir -p "$plugins_dir"
+  mkdir -p "$HOME/.local/share/oma-type"
+  local old
+  while IFS= read -r old; do rm -f "$old"; done < <(installed_links)
+
+  local dev_link="$plugin_link.dev-$(date +%s%N)"
+  ln -sfn "$repo" "$dev_link"
+  echo "linked $dev_link -> $repo"
+
+  mkdir -p "$HOME/.local/bin"
+  if [[ ! -e $HOME/.local/bin/oma-type || -L $HOME/.local/bin/oma-type ]]; then
+    ln -sfn "$self" "$HOME/.local/bin/oma-type"
+    echo "linked ~/.local/bin/oma-type"
+  fi
+
+  # Install desktop entry so oma-cast indexes it
+  mkdir -p "$apps_dir"
+  if [[ -f $repo/oma-type.desktop ]]; then
+    cp "$repo/oma-type.desktop" "$apps_dir/oma-type.desktop"
+    echo "installed $apps_dir/oma-type.desktop"
+  fi
+
+  omarchy-shell -q shell rescanPlugins 2>/dev/null || true
+
+  local out i
+  for i in $(seq 1 50); do
+    out=$(omarchy plugin enable "$PLUGIN_ID" 2>&1) && break
+    [[ $out == *"not ready"* || $out == *"could not find"* || $out == *"not known"* ]] || break
+    sleep 0.1
+  done
+  [[ -n $out ]] && echo "$out"
+
+  for i in $(seq 1 60); do
+    [[ $(omarchy-shell "$IPC_TARGET" ping 2>/dev/null) == "ok" ]] && { echo "oma-type is running"; return 0; }
+    sleep 0.1
+  done
+  die "plugin did not answer; check shell log with: qs log -n -p \"\$OMARCHY_PATH/shell\""
+}
+
+cmd_uninstall() {
+  need_shell
+  omarchy plugin disable "$PLUGIN_ID" 2>/dev/null || true
+  local link
+  while IFS= read -r link; do
+    [[ -n $link ]] && rm -f "$link" && echo "removed $link"
+  done < <(installed_links)
+  omarchy-shell -q shell rescanPlugins 2>/dev/null || true
+
+  if [[ -L $HOME/.local/bin/oma-type && $(readlink -f "$HOME/.local/bin/oma-type") == "$self" ]]; then
+    rm -f "$HOME/.local/bin/oma-type" && echo "removed ~/.local/bin/oma-type"
+  fi
+  if [[ -f $apps_dir/oma-type.desktop ]]; then
+    rm -f "$apps_dir/oma-type.desktop" && echo "removed $apps_dir/oma-type.desktop"
+  fi
+}
+
+cmd_reload() {
+  need_shell
+  local old
+  while IFS= read -r old; do rm -f "$old"; done < <(installed_links)
+  local dev_link="$plugin_link.dev-$(date +%s%N)"
+  ln -sfn "$repo" "$dev_link"
+  echo "relinked $dev_link -> $repo"
+}
+
+cmd_doctor() {
+  local bad=0
+  check() {
+    local label=$1; shift
+    if "$@" >/dev/null 2>&1; then printf '  ok    %s\n' "$label"; else printf '  FAIL  %s\n' "$label"; bad=1; fi
+  }
+  echo "oma-type doctor"
+  check "omarchy-shell is installed" command -v omarchy-shell
+  check "omarchy-shell is running" omarchy-shell shell ping
+  check "plugin is linked into $plugins_dir" test -n "$(current_link)"
+  check "plugin is enabled" bash -c "omarchy plugin list --json 2>/dev/null | grep -q '\"id\":\"$PLUGIN_ID\"[^}]*\"enabled\":true'"
+  check "plugin answers IPC" bash -c "[[ \$(omarchy-shell $IPC_TARGET ping) == ok ]]"
+  check "desktop launcher is installed" test -f "$apps_dir/oma-type.desktop"
+  return $bad
+}
+
+case "${1:-}" in
+  toggle|show|hide|reset) need_shell; ipc "$1" >/dev/null ;;
+  ping) need_shell; ipc ping ;;
+  install) cmd_install ;;
+  uninstall) cmd_uninstall ;;
+  reload) cmd_reload ;;
+  doctor) cmd_doctor ;;
+  -h|--help|help|"") usage ;;
+  *) usage >&2; exit 1 ;;
+esac

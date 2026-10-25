@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Typing Practice
+GenericName=Typing Speed Test
+Comment=Monkeytype-style minimalist typing speed test
+Exec=oma-type toggle
+Icon=input-keyboard
+Terminal=false
+Categories=Utility;Game;Education;
+Keywords=typing;type;monkeytype;speedtest;wpm;practice;test;keyboard;
+StartupNotify=false

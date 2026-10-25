@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "juancasanueva.oma-type",
+  "name": "Oma Type",
+  "version": "0.1.0",
+  "author": "juan",
+  "description": "Minimalist Monkeytype-style typing speed test for Omarchy",
+  "kinds": [
+    "overlay"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "overlay": "TypingOverlay.qml"
+  }
+}
