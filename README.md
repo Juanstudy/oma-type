@@ -47,14 +47,18 @@ bin/oma-type doctor
 
 ## Keyboard Controls
 
-| Key | Action |
-|---|---|
-| `Any Letter` | Starts the timer / types character |
-| `Space` | Advances to next word (only when current word is typed) |
-| `Backspace` | Erases previous character |
-| `Tab` | Restarts the test with fresh text |
-| `Esc` | Closes the overlay (or returns from stats to test) |
-| `Enter` | Restarts after finishing a test / returns from stats |
+| Key | Shortcut | Action |
+|---|---|---|
+| `F1` | `Ctrl + M` | Toggle mode (`Quote` ↔ `Time`) |
+| `F2` | `Ctrl + L` / `Ctrl + D` | Toggle quote length (`short` ↔ `medium`) or timer (`15s` ↔ `30s`) |
+| `F3` | `Ctrl + S` | Cycle mechanical sound (`thock` → `clicky` → `typewriter` → `off`) |
+| `F4` | `Ctrl + H` / `Ctrl + E` | Toggle stats & analytics graph |
+| `Tab` | — | Restart test with fresh text |
+| `Esc` | — | Close overlay (or return from stats to test) |
+| `Enter` | — | Restart after finishing a test / return from stats |
+| `Space` | — | Advance to next word (only when current word is fully typed) |
+| `Backspace` | — | Erase previous character |
+
 
 ---
 

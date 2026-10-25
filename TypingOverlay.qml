@@ -73,6 +73,28 @@ Item {
     root.resetTest()
   }
 
+  function toggleMode() {
+    root.activeView = "test"
+    root.setMode(root.mode === "quote" ? "time" : "quote")
+  }
+
+  function toggleLengthOrDuration() {
+    root.activeView = "test"
+    if (root.mode === "quote") {
+      root.toggleQuoteLength()
+    } else {
+      root.toggleDuration()
+    }
+  }
+
+  function toggleStatsView() {
+    root.activeView = (root.activeView === "stats") ? "test" : "stats"
+    if (root.activeView === "stats") {
+      root.summary = HistoryModule.getSummary(root.history)
+      graphAnim.restart()
+    }
+  }
+
   function cycleSoundTheme() {
     var themes = ["thock", "clicky", "typewriter", "off"]
     var nextIdx = (themes.indexOf(root.soundTheme) + 1) % themes.length
@@ -309,6 +331,37 @@ Item {
             return
           }
 
+          // Shortcuts: F-keys and Ctrl combinations
+          var isCtrl = (event.modifiers & Qt.ControlModifier)
+
+          // F1 or Ctrl+M: Toggle Mode (Quote <-> Time)
+          if (event.key === Qt.Key_F1 || (isCtrl && event.key === Qt.Key_M)) {
+            root.toggleMode()
+            event.accepted = true
+            return
+          }
+
+          // F2 or Ctrl+L / Ctrl+D: Toggle Length (short/medium) or Duration (15s/30s)
+          if (event.key === Qt.Key_F2 || (isCtrl && (event.key === Qt.Key_L || event.key === Qt.Key_D))) {
+            root.toggleLengthOrDuration()
+            event.accepted = true
+            return
+          }
+
+          // F3 or Ctrl+S: Cycle Sound Theme (thock -> clicky -> typewriter -> off)
+          if (event.key === Qt.Key_F3 || (isCtrl && event.key === Qt.Key_S)) {
+            root.cycleSoundTheme()
+            event.accepted = true
+            return
+          }
+
+          // F4 or Ctrl+H / Ctrl+E: Toggle Stats view
+          if (event.key === Qt.Key_F4 || (isCtrl && (event.key === Qt.Key_H || event.key === Qt.Key_E))) {
+            root.toggleStatsView()
+            event.accepted = true
+            return
+          }
+
           if (root.activeView === "stats") {
             if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
               root.activeView = "test"
@@ -327,6 +380,9 @@ Item {
             }
             return
           }
+
+          // Ignore any other Ctrl combination so it doesn't feed stray control chars
+          if (isCtrl) return
 
           var keyStr = ""
           if (event.key === Qt.Key_Backspace) keyStr = "Backspace"
@@ -1216,24 +1272,141 @@ Item {
           anchors.right: parent.right
           anchors.rightMargin: 24
           anchors.verticalCenter: parent.verticalCenter
-          spacing: 20
+          spacing: 14
+
+          // Mode Hint
+          Row {
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 6
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: "Mode"
+              font.family: Style.font.family
+              font.pixelSize: 12
+              color: Util.alpha(Commons.Color.menu.text, 0.5)
+            }
+
+            Rectangle {
+              width: 30
+              height: 22
+              radius: 5
+              color: Util.alpha(Commons.Color.menu.text, 0.08)
+              border.color: Util.alpha(Commons.Color.menu.text, 0.15)
+              border.width: 1
+
+              Text {
+                anchors.centerIn: parent
+                text: "F1"
+                font.family: Style.font.family
+                font.pixelSize: 11
+                font.bold: true
+                color: Commons.Color.menu.text
+              }
+            }
+          }
+
+          Rectangle {
+            width: 1
+            height: 14
+            anchors.verticalCenter: parent.verticalCenter
+            color: Util.alpha(Commons.Color.menu.text, 0.12)
+          }
+
+          // Sound Hint
+          Row {
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 6
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: "Sound"
+              font.family: Style.font.family
+              font.pixelSize: 12
+              color: Util.alpha(Commons.Color.menu.text, 0.5)
+            }
+
+            Rectangle {
+              width: 30
+              height: 22
+              radius: 5
+              color: Util.alpha(Commons.Color.menu.text, 0.08)
+              border.color: Util.alpha(Commons.Color.menu.text, 0.15)
+              border.width: 1
+
+              Text {
+                anchors.centerIn: parent
+                text: "F3"
+                font.family: Style.font.family
+                font.pixelSize: 11
+                font.bold: true
+                color: Commons.Color.menu.text
+              }
+            }
+          }
+
+          Rectangle {
+            width: 1
+            height: 14
+            anchors.verticalCenter: parent.verticalCenter
+            color: Util.alpha(Commons.Color.menu.text, 0.12)
+          }
+
+          // Stats Hint
+          Row {
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 6
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: "Stats"
+              font.family: Style.font.family
+              font.pixelSize: 12
+              color: Util.alpha(Commons.Color.menu.text, 0.5)
+            }
+
+            Rectangle {
+              width: 30
+              height: 22
+              radius: 5
+              color: Util.alpha(Commons.Color.menu.text, 0.08)
+              border.color: Util.alpha(Commons.Color.menu.text, 0.15)
+              border.width: 1
+
+              Text {
+                anchors.centerIn: parent
+                text: "F4"
+                font.family: Style.font.family
+                font.pixelSize: 11
+                font.bold: true
+                color: Commons.Color.menu.text
+              }
+            }
+          }
+
+          Rectangle {
+            width: 1
+            height: 14
+            anchors.verticalCenter: parent.verticalCenter
+            color: Util.alpha(Commons.Color.menu.text, 0.12)
+          }
 
           // Restart Hint
           Row {
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 8
+            spacing: 6
 
             Text {
               anchors.verticalCenter: parent.verticalCenter
               text: "Restart"
               font.family: Style.font.family
-              font.pixelSize: 13
-              color: Util.alpha(Commons.Color.menu.text, 0.6)
+              font.pixelSize: 12
+              color: Util.alpha(Commons.Color.menu.text, 0.5)
             }
 
             Rectangle {
-              width: 38
-              height: 24
+              width: 36
+              height: 22
               radius: 5
               color: Util.alpha(Commons.Color.menu.text, 0.08)
               border.color: Util.alpha(Commons.Color.menu.text, 0.15)
@@ -1254,25 +1427,25 @@ Item {
             width: 1
             height: 14
             anchors.verticalCenter: parent.verticalCenter
-            color: Util.alpha(Commons.Color.menu.text, 0.15)
+            color: Util.alpha(Commons.Color.menu.text, 0.12)
           }
 
           // Close Hint
           Row {
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 8
+            spacing: 6
 
             Text {
               anchors.verticalCenter: parent.verticalCenter
               text: "Close"
               font.family: Style.font.family
-              font.pixelSize: 13
-              color: Util.alpha(Commons.Color.menu.text, 0.6)
+              font.pixelSize: 12
+              color: Util.alpha(Commons.Color.menu.text, 0.5)
             }
 
             Rectangle {
-              width: 38
-              height: 24
+              width: 36
+              height: 22
               radius: 5
               color: Util.alpha(Commons.Color.menu.text, 0.08)
               border.color: Util.alpha(Commons.Color.menu.text, 0.15)
