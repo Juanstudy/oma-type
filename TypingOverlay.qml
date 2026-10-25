@@ -10,6 +10,7 @@ import "core/Words.js" as WordsModule
 import "core/Quotes.js" as QuotesModule
 import "core/Engine.js" as EngineModule
 import "core/History.js" as HistoryModule
+import "core/Settings.js" as SettingsModule
 
 Item {
   id: root
@@ -24,6 +25,8 @@ Item {
   property int sessionRevision: 0
 
   property string soundTheme: "thock" // "thock" | "clicky" | "typewriter" | "off"
+  property double soundVolume: 0.55
+  property bool settingsLoaded: false
   property string soundBaseDir: Quickshell.env("HOME") + "/Projects/oma-type/assets/sounds"
   property double lastSoundTime: 0
 
@@ -51,26 +54,31 @@ Item {
     if (root.mode === m) return
     root.mode = m
     root.resetTest()
+    root.saveSettings()
   }
 
   function setDuration(d) {
     root.duration = d
     root.resetTest()
+    root.saveSettings()
   }
 
   function setQuoteLength(len) {
     root.quoteLength = len
     root.resetTest()
+    root.saveSettings()
   }
 
   function toggleQuoteLength() {
     root.quoteLength = (root.quoteLength === "short") ? "medium" : "short"
     root.resetTest()
+    root.saveSettings()
   }
 
   function toggleDuration() {
     root.duration = (root.duration === 15) ? 30 : 15
     root.resetTest()
+    root.saveSettings()
   }
 
   function toggleMode() {
@@ -100,6 +108,33 @@ Item {
     var nextIdx = (themes.indexOf(root.soundTheme) + 1) % themes.length
     root.soundTheme = themes[nextIdx]
     root.playKeySound()
+    root.saveSettings()
+  }
+
+  function loadSettings(jsonText) {
+    var s = SettingsModule.parseSettings(jsonText)
+    root.soundTheme = s.soundTheme
+    root.mode = s.mode
+    root.quoteLength = s.quoteLength
+    root.duration = s.duration
+    root.soundVolume = s.soundVolume
+    root.settingsLoaded = true
+    root.resetTest()
+    if (!jsonText || jsonText === "{}" || jsonText.trim() === "") {
+      root.saveSettings()
+    }
+  }
+
+  function saveSettings() {
+    if (!root.settingsLoaded) return
+    var data = {
+      soundTheme: root.soundTheme,
+      mode: root.mode,
+      quoteLength: root.quoteLength,
+      duration: root.duration,
+      soundVolume: root.soundVolume
+    }
+    settingsFile.setText(SettingsModule.serializeSettings(data))
   }
 
   function playKeySound() {
@@ -118,7 +153,7 @@ Item {
     }
 
     if (file) {
-      Quickshell.execDetached(["pw-play", "--volume", "0.55", file])
+      Quickshell.execDetached(["pw-play", "--volume", "" + root.soundVolume, file])
     }
   }
 
@@ -196,6 +231,15 @@ Item {
       root.history = []
       root.summary = HistoryModule.getSummary([])
     }
+  }
+
+  FileView {
+    id: settingsFile
+    path: (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/oma-type/settings.json"
+    atomicWrites: true
+    printErrors: false
+    onLoaded: root.loadSettings(text())
+    onLoadFailed: function(err) { root.loadSettings("{}") }
   }
 
   FileView {

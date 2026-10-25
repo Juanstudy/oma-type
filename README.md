@@ -61,6 +61,29 @@ bin/oma-type doctor
 | `Space` | — | Advance to next word (only when current word is fully typed) |
 | `Backspace` | — | Erase previous character |
 
+---
+
+## Configuration
+
+Settings are automatically saved on every change to `~/.config/oma-type/settings.json`:
+
+```json
+{
+  "soundTheme": "thock",
+  "mode": "quote",
+  "quoteLength": "short",
+  "duration": 15,
+  "soundVolume": 0.55
+}
+```
+
+* `soundTheme`: `"thock"` | `"clicky"` | `"typewriter"` | `"off"`
+* `mode`: `"quote"` | `"time"`
+* `quoteLength`: `"short"` | `"medium"`
+* `duration`: `15` | `30`
+* `soundVolume`: `0.0` to `1.0` (PipeWire switch playback volume)
+
+
 
 ---
 

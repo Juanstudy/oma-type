@@ -53,6 +53,7 @@ cmd_install() {
 
   mkdir -p "$plugins_dir"
   mkdir -p "$HOME/.local/share/oma-type"
+  mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/oma-type"
   local old
   while IFS= read -r old; do rm -f "$old"; done < <(installed_links)
 
