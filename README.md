@@ -1,5 +1,7 @@
 # oma-type
 
+[![CI](https://github.com/Juanstudy/oma-type/actions/workflows/ci.yml/badge.svg)](https://github.com/Juanstudy/oma-type/actions/workflows/ci.yml)
+
 **A minimalist, ultra-fast Monkeytype & Raycast-inspired typing practice plugin for [Omarchy](https://omarchy.org).**
 
 Runs natively inside `omarchy-shell` (Quickshell / Qt Quick) with sub-millisecond input latency, GPU text rendering, PipeWire mechanical switch sounds, and live theme synchronization.
