@@ -13,12 +13,12 @@ Implementación integral de mecánicas de práctica de tipeo: modo palabras, tie
 
 ## Tasks
 
-* T1: Extender duraciones (60s) y soporte de modo words en `core/Settings.js` [S2, S5] (route: inline)
-* T2: Implementar modo words y finalización inmediata en `core/Engine.js` [S1] (route: inline)
-* T3: Implementar generador de palabras con opciones de puntuación y números en `core/Words.js` [S3, S4] (route: inline)
-* T4: Añadir suite de tests unitarios TDD para Settings, Engine y Words [S7] (route: inline)
-* T5: Integrar controles, selector y atajos en `TypingOverlay.qml` [S6] (route: inline)
-* T6: Documentar nuevas mecánicas y atajos en `README.md` [S1-S6] (route: inline)
+* T1: Extender duraciones (60s) y soporte de modo words en `core/Settings.js` [S2, S5] (route: inline, commit: 30692de)
+* T2: Implementar modo words y finalización inmediata en `core/Engine.js` [S1] (route: inline, commit: 30692de)
+* T3: Implementar generador de palabras con opciones de puntuación y números en `core/Words.js` [S3, S4] (route: inline, commit: 30692de)
+* T4: Añadir suite de tests unitarios TDD para Settings, Engine y Words [S7] (route: inline, commit: 30692de)
+* T5: Integrar controles, selector y atajos en `TypingOverlay.qml` [S6] (route: inline, commit: 30692de)
+* T6: Documentar nuevas mecánicas y atajos en `README.md` [S1-S6] (route: inline, commit: 30692de)
 
 ## Log
 
