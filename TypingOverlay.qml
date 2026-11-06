@@ -769,31 +769,25 @@ Item {
                     id: smoothCaret
                     width: 3.2
                     height: 35
+                    radius: 1.6
                     color: Commons.Color.menu.selectedText
                     visible: !root.stats.isFinished && root.session && root.session.status !== "finished"
                     z: 10
 
                     property real targetX: 0
                     property real targetY: 0
+                    readonly property bool animateCaret: root.sessionRevision > 0
 
                     x: targetX
                     y: targetY
 
                     Behavior on x {
-                      enabled: root.session && root.session.status === "running"
-                      NumberAnimation { duration: 65; easing.type: Easing.OutQuad }
+                      enabled: smoothCaret.animateCaret
+                      NumberAnimation { duration: 100; easing.type: Easing.OutCubic }
                     }
                     Behavior on y {
-                      NumberAnimation { duration: 80; easing.type: Easing.OutQuad }
-                    }
-
-                    SequentialAnimation on opacity {
-                      running: !root.stats.isFinished
-                      loops: Animation.Infinite
-                      NumberAnimation { to: 1; duration: 0 }
-                      PauseAnimation { duration: 450 }
-                      NumberAnimation { to: 0; duration: 0 }
-                      PauseAnimation { duration: 450 }
+                      enabled: smoothCaret.animateCaret
+                      NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
                     }
                   }
 
