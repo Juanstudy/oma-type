@@ -77,14 +77,22 @@ function handleKey(session, key, timestamp) {
     return session;
   }
 
-  // Space: advance to next word only when current word is fully typed
+  // Space: advance to next word (Monkeytype-style)
   if (key === " " || key === "Space") {
-    // If user is in the middle of a word, do not jump/skip to the end
-    if (session.charIndex < currentWord.chars.length) {
+    // If user hasn't typed anything in the current word, ignore space
+    if (session.charIndex === 0 && currentWord.extra.length === 0) {
       return session;
     }
 
     session.totalKeypresses++;
+
+    // If word is incomplete, mark remaining characters as incorrect
+    if (session.charIndex < currentWord.chars.length) {
+      for (var j = session.charIndex; j < currentWord.chars.length; j++) {
+        currentWord.chars[j].state = "incorrect";
+        session.incorrectChars++;
+      }
+    }
 
     // Check if current word was completed 100% correctly
     var wordPerfect = true;

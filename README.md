@@ -58,7 +58,7 @@ bin/oma-type doctor
 | `Tab` | — | Restart test with fresh text |
 | `Esc` | — | Close overlay (or return from stats to test) |
 | `Enter` | — | Restart after finishing a test / return from stats |
-| `Space` | — | Advance to next word (only when current word is fully typed) |
+| `Space` | — | Advance to next word (skips incomplete word as incorrect, Monkeytype-style) |
 | `Backspace` | — | Erase previous character |
 
 ---

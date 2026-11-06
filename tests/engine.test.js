@@ -49,7 +49,7 @@ test("Engine: space advances to next word and awards correct space if word was p
   assert.equal(session.correctChars, 3);
 });
 
-test("Engine: space in the middle of a word does not skip the word", () => {
+test("Engine: space in the middle of a word skips to next word and marks remaining characters as incorrect", () => {
   const session = createSession({ duration: 15, words: ["because", "we"] });
   const t0 = 100000;
   handleKey(session, "b", t0);
@@ -58,21 +58,23 @@ test("Engine: space in the middle of a word does not skip the word", () => {
   // Pressing space at character 2 of a 7-letter word
   handleKey(session, " ", t0 + 200);
 
-  // Must NOT advance to next word or skip "cause"
-  assert.equal(session.wordIndex, 0);
-  assert.equal(session.charIndex, 2);
-  assert.equal(session.words[0].chars[2].state, "pending");
+  // Must advance to next word
+  assert.equal(session.wordIndex, 1);
+  assert.equal(session.charIndex, 0);
 
-  // Type the rest
-  handleKey(session, "c", t0 + 300);
-  handleKey(session, "a", t0 + 400);
-  handleKey(session, "u", t0 + 500);
-  handleKey(session, "s", t0 + 600);
-  handleKey(session, "e", t0 + 700);
-  assert.equal(session.charIndex, 7);
+  // First 2 chars were correct ('b', 'e')
+  assert.equal(session.words[0].chars[0].state, "correct");
+  assert.equal(session.words[0].chars[1].state, "correct");
 
-  // Now space advances cleanly
-  handleKey(session, " ", t0 + 800);
+  // Remaining 5 un-typed chars ('c', 'a', 'u', 's', 'e') marked as incorrect
+  for (let i = 2; i < 7; i++) {
+    assert.equal(session.words[0].chars[i].state, "incorrect");
+  }
+  assert.equal(session.incorrectChars, 5);
+  assert.equal(session.correctChars, 2);
+
+  // Space on untouched word (charIndex === 0) does not skip the word
+  handleKey(session, " ", t0 + 300);
   assert.equal(session.wordIndex, 1);
   assert.equal(session.charIndex, 0);
 });
