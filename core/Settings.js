@@ -11,7 +11,7 @@ var DEFAULT_SETTINGS = {
   soundVolume: 0.55
 };
 
-var VALID_SOUND_THEMES = ["thock", "clicky", "typewriter", "off"];
+var VALID_SOUND_THEMES = ["thock", "cream", "topre", "clicky", "typewriter", "off"];
 var VALID_MODES = ["quote", "time", "words"];
 var VALID_QUOTE_LENGTHS = ["short", "medium"];
 var VALID_DURATIONS = [15, 30, 60];

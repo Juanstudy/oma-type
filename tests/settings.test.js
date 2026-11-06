@@ -55,6 +55,13 @@ test("Settings: parseSettings validates and sanitizes input properties", () => {
   assert.equal(wordsSettings.punctuation, true);
   assert.equal(wordsSettings.numbers, true);
 
+  // New mechanical sound themes: cream and topre
+  const creamSettings = Settings.parseSettings(JSON.stringify({ soundTheme: "cream" }));
+  assert.equal(creamSettings.soundTheme, "cream");
+
+  const topreSettings = Settings.parseSettings(JSON.stringify({ soundTheme: "topre" }));
+  assert.equal(topreSettings.soundTheme, "topre");
+
   // Invalid values should fallback to defaults
   const invalid = Settings.parseSettings(JSON.stringify({
     soundTheme: "hacker_neon",

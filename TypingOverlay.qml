@@ -135,12 +135,44 @@ Item {
     }
   }
 
+  property string toastMessage: ""
+  property bool toastVisible: false
+
+  Timer {
+    id: toastTimer
+    interval: 1200
+    repeat: false
+    onTriggered: { root.toastVisible = false }
+  }
+
+  function showToast(msg) {
+    root.toastMessage = msg
+    root.toastVisible = true
+    toastTimer.restart()
+  }
+
+  function adjustVolume(delta) {
+    var newVol = Math.round((root.soundVolume + delta) * 20) / 20
+    newVol = Math.max(0.0, Math.min(1.0, newVol))
+    root.soundVolume = newVol
+    root.saveSettings()
+
+    // Acoustic feedback
+    root.lastSoundTime = 0
+    root.playKeySound()
+
+    var pct = Math.round(root.soundVolume * 100)
+    root.showToast("Volume: " + pct + "%")
+  }
+
   function cycleSoundTheme() {
-    var themes = ["thock", "clicky", "typewriter", "off"]
+    var themes = ["thock", "cream", "topre", "clicky", "typewriter", "off"]
     var nextIdx = (themes.indexOf(root.soundTheme) + 1) % themes.length
     root.soundTheme = themes[nextIdx]
+    root.lastSoundTime = 0
     root.playKeySound()
     root.saveSettings()
+    root.showToast(root.soundTheme === "off" ? "Sound: Off" : "Switch: " + root.soundTheme)
   }
 
   function loadSettings(jsonText) {
@@ -184,6 +216,10 @@ Item {
     var file = ""
     if (root.soundTheme === "thock") {
       file = root.soundBaseDir + "/thock/" + (Math.floor(Math.random() * 4) + 1) + ".wav"
+    } else if (root.soundTheme === "cream") {
+      file = root.soundBaseDir + "/cream/" + (Math.floor(Math.random() * 4) + 1) + ".wav"
+    } else if (root.soundTheme === "topre") {
+      file = root.soundBaseDir + "/topre/" + (Math.floor(Math.random() * 4) + 1) + ".wav"
     } else if (root.soundTheme === "clicky") {
       file = root.soundBaseDir + "/clicky/" + (Math.floor(Math.random() * 3) + 1) + ".wav"
     } else if (root.soundTheme === "typewriter") {
@@ -461,6 +497,20 @@ Item {
             return
           }
 
+          // Ctrl+Up: Increase volume
+          if (isCtrl && event.key === Qt.Key_Up) {
+            root.adjustVolume(0.05)
+            event.accepted = true
+            return
+          }
+
+          // Ctrl+Down: Decrease volume
+          if (isCtrl && event.key === Qt.Key_Down) {
+            root.adjustVolume(-0.05)
+            event.accepted = true
+            return
+          }
+
           if (root.activeView === "stats") {
             if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
               root.activeView = "test"
@@ -496,6 +546,35 @@ Item {
             root.updateCaretPosition()
             event.accepted = true
           }
+        }
+      }
+
+      // Floating HUD Toast (Volume & Switch changes)
+      Rectangle {
+        id: hudToast
+        anchors.top: parent.top
+        anchors.topMargin: 16
+        anchors.horizontalCenter: parent.horizontalCenter
+        height: 32
+        width: toastText.contentWidth + 26
+        radius: 16
+        color: Commons.Color.menu.selectedBackground
+        opacity: root.toastVisible ? 1.0 : 0.0
+        visible: opacity > 0.01
+        z: 200
+
+        Behavior on opacity {
+          NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+        }
+
+        Text {
+          id: toastText
+          anchors.centerIn: parent
+          text: root.toastMessage
+          font.family: Style.font.family
+          font.pixelSize: 12
+          font.bold: true
+          color: Commons.Color.menu.selectedText
         }
       }
 
