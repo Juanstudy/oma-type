@@ -26,6 +26,7 @@ Item {
   property var session: null
   property var stats: ({ wpm: 0, rawWpm: 0, accuracy: 100, timeLeft: 15, elapsedSeconds: 0, isFinished: false, status: "idle", quote: null, totalKeypresses: 0 })
   property int sessionRevision: 0
+  readonly property bool isTypingActive: root.activeView === "test" && root.stats.status === "running" && !root.stats.isFinished
 
   property string soundTheme: "thock" // "thock" | "clicky" | "typewriter" | "off"
   property double soundVolume: 0.55
@@ -507,6 +508,18 @@ Item {
         height: 64
         anchors.leftMargin: 24
         anchors.rightMargin: 24
+        opacity: (root.isTypingActive && !headerHover.containsMouse) ? 0.0 : 1.0
+
+        Behavior on opacity {
+          NumberAnimation { duration: 240; easing.type: Easing.OutCubic }
+        }
+
+        MouseArea {
+          id: headerHover
+          anchors.fill: parent
+          hoverEnabled: true
+          acceptedButtons: Qt.NoButton
+        }
 
         // Top-Left: Back button
         Rectangle {
@@ -537,274 +550,159 @@ Item {
           }
         }
 
-        // Top-Center: Segmented Control Pill
-        Rectangle {
-          id: navPill
-          height: 36
-          width: pillRow.width + 16
+        // Top-Center: Compact Unified Mode & Stats Pill (Raycast style)
+        Row {
+          id: topCenterRow
           anchors.horizontalCenter: parent.horizontalCenter
           anchors.verticalCenter: parent.verticalCenter
-          radius: 9
-          color: Util.alpha(Commons.Color.menu.text, 0.05)
-          border.color: Util.alpha(Commons.Color.menu.text, 0.1)
-          border.width: 1
+          spacing: 8
 
-          Row {
-            id: pillRow
-            anchors.centerIn: parent
-            spacing: 6
+          // Compact Unified Mode Pill
+          Rectangle {
+            id: modePill
+            height: 34
+            width: modePillContent.width + 24
+            radius: 8
+            color: modeMouse.containsMouse ? Util.alpha(Commons.Color.menu.text, 0.08) : Util.alpha(Commons.Color.menu.text, 0.04)
+            border.color: Util.alpha(Commons.Color.menu.text, 0.1)
+            border.width: 1
 
-            // Time Pill
-            Rectangle {
-              height: 28
-              width: timeContentRow.width + 18
-              radius: 7
-              color: (root.activeView === "test" && root.mode === "time")
-                ? Commons.Color.menu.selectedBackground
-                : "transparent"
+            Row {
+              id: modePillContent
+              anchors.centerIn: parent
+              spacing: 8
 
-              Row {
-                id: timeContentRow
-                anchors.centerIn: parent
-                spacing: 6
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Time"
-                  font.family: Style.font.family
-                  font.pixelSize: 13
-                  font.bold: root.mode === "time"
-                  color: (root.activeView === "test" && root.mode === "time")
-                    ? Commons.Color.menu.selectedText
-                    : Util.alpha(Commons.Color.menu.text, 0.5)
-                }
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  visible: root.activeView === "test" && root.mode === "time"
-                  text: root.duration + "s ▾"
-                  font.family: Style.font.family
-                  font.pixelSize: 11
-                  color: Util.alpha(Commons.Color.menu.selectedText, 0.75)
-                }
-              }
-
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                  if (root.activeView === "test" && root.mode === "time") {
-                    root.toggleDuration()
-                  } else {
-                    root.activeView = "test"
-                    root.setMode("time")
-                  }
-                }
-              }
-            }
-
-            // Words Pill
-            Rectangle {
-              height: 28
-              width: wordsContentRow.width + 18
-              radius: 7
-              color: (root.activeView === "test" && root.mode === "words")
-                ? Commons.Color.menu.selectedBackground
-                : "transparent"
-
-              Row {
-                id: wordsContentRow
-                anchors.centerIn: parent
-                spacing: 6
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Words"
-                  font.family: Style.font.family
-                  font.pixelSize: 13
-                  font.bold: root.mode === "words"
-                  color: (root.activeView === "test" && root.mode === "words")
-                    ? Commons.Color.menu.selectedText
-                    : Util.alpha(Commons.Color.menu.text, 0.5)
-                }
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  visible: root.activeView === "test" && root.mode === "words"
-                  text: root.wordCount + " ▾"
-                  font.family: Style.font.family
-                  font.pixelSize: 11
-                  color: Util.alpha(Commons.Color.menu.selectedText, 0.75)
-                }
-              }
-
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                  if (root.activeView === "test" && root.mode === "words") {
-                    root.toggleWordCount()
-                  } else {
-                    root.activeView = "test"
-                    root.setMode("words")
-                  }
-                }
-              }
-            }
-
-            // Quote Pill
-            Rectangle {
-              height: 28
-              width: quoteContentRow.width + 18
-              radius: 7
-              color: (root.activeView === "test" && root.mode === "quote")
-                ? Commons.Color.menu.selectedBackground
-                : "transparent"
-
-              Row {
-                id: quoteContentRow
-                anchors.centerIn: parent
-                spacing: 6
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Quote"
-                  font.family: Style.font.family
-                  font.pixelSize: 13
-                  font.bold: root.mode === "quote"
-                  color: (root.activeView === "test" && root.mode === "quote")
-                    ? Commons.Color.menu.selectedText
-                    : Util.alpha(Commons.Color.menu.text, 0.5)
-                }
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  visible: root.activeView === "test" && root.mode === "quote"
-                  text: root.quoteLength + " ▾"
-                  font.family: Style.font.family
-                  font.pixelSize: 11
-                  color: Util.alpha(Commons.Color.menu.selectedText, 0.75)
-                }
-              }
-
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                  if (root.activeView === "test" && root.mode === "quote") {
-                    root.toggleQuoteLength()
-                  } else {
-                    root.activeView = "test"
-                    root.setMode("quote")
-                  }
-                }
-              }
-            }
-
-            // Separator
-            Rectangle {
-              width: 1
-              height: 16
-              anchors.verticalCenter: parent.verticalCenter
-              color: Util.alpha(Commons.Color.menu.text, 0.12)
-            }
-
-            // Punctuation Toggle Pill
-            Rectangle {
-              height: 28
-              width: puncText.contentWidth + 14
-              radius: 7
-              color: root.punctuation
-                ? Commons.Color.menu.selectedBackground
-                : "transparent"
-
+              // Mode name
               Text {
-                id: puncText
-                anchors.centerIn: parent
-                text: "punc"
-                font.family: Style.font.family
-                font.pixelSize: 12
-                font.bold: root.punctuation
-                color: root.punctuation
-                  ? Commons.Color.menu.selectedText
-                  : Util.alpha(Commons.Color.menu.text, 0.5)
-              }
-
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.togglePunctuation()
-              }
-            }
-
-            // Numbers Toggle Pill
-            Rectangle {
-              height: 28
-              width: numText.contentWidth + 14
-              radius: 7
-              color: root.numbers
-                ? Commons.Color.menu.selectedBackground
-                : "transparent"
-
-              Text {
-                id: numText
-                anchors.centerIn: parent
-                text: "123"
-                font.family: Style.font.family
-                font.pixelSize: 12
-                font.bold: root.numbers
-                color: root.numbers
-                  ? Commons.Color.menu.selectedText
-                  : Util.alpha(Commons.Color.menu.text, 0.5)
-              }
-
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.toggleNumbers()
-              }
-            }
-
-            // Separator
-            Rectangle {
-              width: 1
-              height: 16
-              anchors.verticalCenter: parent.verticalCenter
-              color: Util.alpha(Commons.Color.menu.text, 0.12)
-            }
-
-            // Stats Pill
-            Rectangle {
-              height: 28
-              width: statsContentText.contentWidth + 18
-              radius: 7
-              color: root.activeView === "stats"
-                ? Commons.Color.menu.selectedBackground
-                : "transparent"
-
-              Text {
-                id: statsContentText
-                anchors.centerIn: parent
-                text: "Stats"
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.mode === "time" ? "Time" : (root.mode === "words" ? "Words" : "Quote")
                 font.family: Style.font.family
                 font.pixelSize: 13
-                font.bold: root.activeView === "stats"
-                color: root.activeView === "stats"
-                  ? Commons.Color.menu.selectedText
-                  : Util.alpha(Commons.Color.menu.text, 0.5)
+                font.bold: true
+                color: Commons.Color.menu.text
               }
 
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                  root.activeView = (root.activeView === "stats") ? "test" : "stats"
-                  if (root.activeView === "stats") {
-                    root.summary = HistoryModule.getSummary(root.history)
-                    graphAnim.restart()
-                  }
+              // Divider dot
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: "·"
+                font.family: Style.font.family
+                font.pixelSize: 12
+                color: Util.alpha(Commons.Color.menu.text, 0.3)
+              }
+
+              // Active option (15s / 25w / short)
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: {
+                  if (root.mode === "time") return root.duration + "s ▾"
+                  if (root.mode === "words") return root.wordCount + "w ▾"
+                  return root.quoteLength + " ▾"
+                }
+                font.family: Style.font.family
+                font.pixelSize: 12
+                color: Commons.Color.menu.selectedText
+              }
+
+              // Punctuation toggle chip
+              Rectangle {
+                height: 20
+                width: puncLabel.contentWidth + 10
+                radius: 4
+                anchors.verticalCenter: parent.verticalCenter
+                color: root.punctuation ? Util.alpha(Commons.Color.menu.selectedText, 0.2) : "transparent"
+                border.color: root.punctuation ? Util.alpha(Commons.Color.menu.selectedText, 0.4) : "transparent"
+                border.width: 1
+
+                Text {
+                  id: puncLabel
+                  anchors.centerIn: parent
+                  text: "@ punc"
+                  font.family: Style.font.family
+                  font.pixelSize: 10
+                  font.bold: root.punctuation
+                  color: root.punctuation ? Commons.Color.menu.selectedText : Util.alpha(Commons.Color.menu.text, 0.35)
+                }
+
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.togglePunctuation()
                 }
               }
+
+              // Numbers toggle chip
+              Rectangle {
+                height: 20
+                width: numLabel.contentWidth + 10
+                radius: 4
+                anchors.verticalCenter: parent.verticalCenter
+                color: root.numbers ? Util.alpha(Commons.Color.menu.selectedText, 0.2) : "transparent"
+                border.color: root.numbers ? Util.alpha(Commons.Color.menu.selectedText, 0.4) : "transparent"
+                border.width: 1
+
+                Text {
+                  id: numLabel
+                  anchors.centerIn: parent
+                  text: "# 123"
+                  font.family: Style.font.family
+                  font.pixelSize: 10
+                  font.bold: root.numbers
+                  color: root.numbers ? Commons.Color.menu.selectedText : Util.alpha(Commons.Color.menu.text, 0.35)
+                }
+
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.toggleNumbers()
+                }
+              }
+            }
+
+            MouseArea {
+              id: modeMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              acceptedButtons: Qt.LeftButton | Qt.RightButton
+              onClicked: function(mouse) {
+                if (mouse.button === Qt.RightButton || mouse.x > parent.width * 0.48) {
+                  root.toggleLengthOrDuration()
+                } else {
+                  root.toggleMode()
+                }
+              }
+            }
+          }
+
+          // Stats Pill Button
+          Rectangle {
+            id: statsPillBtn
+            height: 34
+            width: statsPillText.contentWidth + 20
+            radius: 8
+            color: root.activeView === "stats"
+              ? Commons.Color.menu.selectedBackground
+              : (statsMouse.containsMouse ? Util.alpha(Commons.Color.menu.text, 0.08) : Util.alpha(Commons.Color.menu.text, 0.04))
+            border.color: Util.alpha(Commons.Color.menu.text, 0.1)
+            border.width: 1
+
+            Text {
+              id: statsPillText
+              anchors.centerIn: parent
+              text: "Stats"
+              font.family: Style.font.family
+              font.pixelSize: 12
+              font.bold: root.activeView === "stats"
+              color: root.activeView === "stats" ? Commons.Color.menu.selectedText : Util.alpha(Commons.Color.menu.text, 0.6)
+            }
+
+            MouseArea {
+              id: statsMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.toggleStatsView()
             }
           }
         }
@@ -871,6 +769,10 @@ Item {
         anchors.top: header.bottom
         height: 1
         color: Util.alpha(Commons.Color.menu.text, 0.08)
+        opacity: header.opacity
+        Behavior on opacity {
+          NumberAnimation { duration: 240; easing.type: Easing.OutCubic }
+        }
       }
 
       // ---------------------------------------------------- Main Body (Centered Content)
@@ -1431,6 +1333,18 @@ Item {
         anchors.bottom: parent.bottom
         height: 48
         color: Util.alpha(Commons.Color.menu.text, 0.02)
+        opacity: (root.isTypingActive && !footerHover.containsMouse) ? 0.0 : 1.0
+
+        Behavior on opacity {
+          NumberAnimation { duration: 240; easing.type: Easing.OutCubic }
+        }
+
+        MouseArea {
+          id: footerHover
+          anchors.fill: parent
+          hoverEnabled: true
+          acceptedButtons: Qt.NoButton
+        }
 
         Rectangle {
           anchors.left: parent.left
@@ -1440,12 +1354,12 @@ Item {
           color: Util.alpha(Commons.Color.menu.text, 0.06)
         }
 
-        // Left: Omarchy glyph + Branding
+        // Left: Omarchy glyph + Branding + subtle shortcut hint
         Row {
           anchors.left: parent.left
           anchors.leftMargin: 24
           anchors.verticalCenter: parent.verticalCenter
-          spacing: 10
+          spacing: 12
 
           Text {
             anchors.verticalCenter: parent.verticalCenter
@@ -1462,170 +1376,29 @@ Item {
             font.pixelSize: 14
             color: Util.alpha(Commons.Color.menu.text, 0.6)
           }
+
+          Rectangle {
+            width: 1
+            height: 12
+            anchors.verticalCenter: parent.verticalCenter
+            color: Util.alpha(Commons.Color.menu.text, 0.1)
+          }
+
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text: "F1 mode · F2 option · F3 sound · F4 stats"
+            font.family: Style.font.family
+            font.pixelSize: 11
+            color: Util.alpha(Commons.Color.menu.text, 0.3)
+          }
         }
 
-        // Right: Key badges
+        // Right: Key badges (Only essential control actions: Restart & Close)
         Row {
           anchors.right: parent.right
           anchors.rightMargin: 24
           anchors.verticalCenter: parent.verticalCenter
           spacing: 14
-
-          // Mode Hint
-          Row {
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 6
-
-            Text {
-              anchors.verticalCenter: parent.verticalCenter
-              text: "Mode"
-              font.family: Style.font.family
-              font.pixelSize: 12
-              color: Util.alpha(Commons.Color.menu.text, 0.5)
-            }
-
-            Rectangle {
-              width: 30
-              height: 22
-              radius: 5
-              color: Util.alpha(Commons.Color.menu.text, 0.08)
-              border.color: Util.alpha(Commons.Color.menu.text, 0.15)
-              border.width: 1
-
-              Text {
-                anchors.centerIn: parent
-                text: "F1"
-                font.family: Style.font.family
-                font.pixelSize: 11
-                font.bold: true
-                color: Commons.Color.menu.text
-              }
-            }
-          }
-
-          Rectangle {
-            width: 1
-            height: 14
-            anchors.verticalCenter: parent.verticalCenter
-            color: Util.alpha(Commons.Color.menu.text, 0.12)
-          }
-
-          // Option Hint
-          Row {
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 6
-
-            Text {
-              anchors.verticalCenter: parent.verticalCenter
-              text: "Option"
-              font.family: Style.font.family
-              font.pixelSize: 12
-              color: Util.alpha(Commons.Color.menu.text, 0.5)
-            }
-
-            Rectangle {
-              width: 30
-              height: 22
-              radius: 5
-              color: Util.alpha(Commons.Color.menu.text, 0.08)
-              border.color: Util.alpha(Commons.Color.menu.text, 0.15)
-              border.width: 1
-
-              Text {
-                anchors.centerIn: parent
-                text: "F2"
-                font.family: Style.font.family
-                font.pixelSize: 11
-                font.bold: true
-                color: Commons.Color.menu.text
-              }
-            }
-          }
-
-          Rectangle {
-            width: 1
-            height: 14
-            anchors.verticalCenter: parent.verticalCenter
-            color: Util.alpha(Commons.Color.menu.text, 0.12)
-          }
-
-          // Sound Hint
-          Row {
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 6
-
-            Text {
-              anchors.verticalCenter: parent.verticalCenter
-              text: "Sound"
-              font.family: Style.font.family
-              font.pixelSize: 12
-              color: Util.alpha(Commons.Color.menu.text, 0.5)
-            }
-
-            Rectangle {
-              width: 30
-              height: 22
-              radius: 5
-              color: Util.alpha(Commons.Color.menu.text, 0.08)
-              border.color: Util.alpha(Commons.Color.menu.text, 0.15)
-              border.width: 1
-
-              Text {
-                anchors.centerIn: parent
-                text: "F3"
-                font.family: Style.font.family
-                font.pixelSize: 11
-                font.bold: true
-                color: Commons.Color.menu.text
-              }
-            }
-          }
-
-          Rectangle {
-            width: 1
-            height: 14
-            anchors.verticalCenter: parent.verticalCenter
-            color: Util.alpha(Commons.Color.menu.text, 0.12)
-          }
-
-          // Stats Hint
-          Row {
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 6
-
-            Text {
-              anchors.verticalCenter: parent.verticalCenter
-              text: "Stats"
-              font.family: Style.font.family
-              font.pixelSize: 12
-              color: Util.alpha(Commons.Color.menu.text, 0.5)
-            }
-
-            Rectangle {
-              width: 30
-              height: 22
-              radius: 5
-              color: Util.alpha(Commons.Color.menu.text, 0.08)
-              border.color: Util.alpha(Commons.Color.menu.text, 0.15)
-              border.width: 1
-
-              Text {
-                anchors.centerIn: parent
-                text: "F4"
-                font.family: Style.font.family
-                font.pixelSize: 11
-                font.bold: true
-                color: Commons.Color.menu.text
-              }
-            }
-          }
-
-          Rectangle {
-            width: 1
-            height: 14
-            anchors.verticalCenter: parent.verticalCenter
-            color: Util.alpha(Commons.Color.menu.text, 0.12)
-          }
 
           // Restart Hint
           Row {
