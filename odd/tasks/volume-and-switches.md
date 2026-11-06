@@ -13,11 +13,11 @@ Control de volumen interactivo con atajos de teclado y feedback acústico/HUD en
 
 ## Tasks
 
-* T1: Actualizar `VALID_SOUND_THEMES` y pruebas en `core/Settings.js` y `tests/settings.test.js` [S2, S6] (route: inline)
-* T2: Generar e instalar muestras acústicas de alta fidelidad para `cream` y `topre` [S1] (route: inline)
-* T3: Implementar control de volumen (`Ctrl+Up`/`Down`) y ciclo de switches en `TypingOverlay.qml` [S3, S5] (route: inline)
-* T4: Implementar toast visual minimalista de volumen en `TypingOverlay.qml` [S4] (route: inline)
-* T5: Actualizar tabla de atajos y configuraciones en `README.md` [S7] (route: inline)
+* T1: Actualizar `VALID_SOUND_THEMES` y pruebas en `core/Settings.js` y `tests/settings.test.js` [S2, S6] (route: inline, commit: bc1af74)
+* T2: Generar e instalar muestras acústicas de alta fidelidad para `cream` y `topre` [S1] (route: inline, commit: bc1af74)
+* T3: Implementar control de volumen (`Ctrl+Up`/`Down`) y ciclo de switches en `TypingOverlay.qml` [S3, S5] (route: inline, commit: bc1af74)
+* T4: Implementar toast visual minimalista de volumen en `TypingOverlay.qml` [S4] (route: inline, commit: bc1af74)
+* T5: Actualizar tabla de atajos y configuraciones en `README.md` [S7] (route: inline, commit: bc1af74)
 
 ## Log
 
