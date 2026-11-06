@@ -167,3 +167,39 @@ test("Engine Quote Mode: finishes immediately on last char of last word and supp
   assert.equal(stats.quote.source, "Unknown");
 });
 
+test("Engine Words Mode: finishes immediately on last char of last word without needing space", () => {
+  const session = createSession({
+    mode: "words",
+    words: ["quick", "fox"]
+  });
+
+  assert.equal(session.mode, "words");
+  assert.equal(session.status, "idle");
+
+  const t0 = 100000;
+  // Type 'quick'
+  "quick".split("").forEach((ch, idx) => handleKey(session, ch, t0 + idx * 50));
+  assert.equal(session.status, "running");
+  assert.equal(session.wordIndex, 0);
+
+  // Advance with space
+  handleKey(session, " ", t0 + 300);
+  assert.equal(session.wordIndex, 1);
+  assert.equal(session.charIndex, 0);
+
+  // Type 'fo'
+  handleKey(session, "f", t0 + 400);
+  handleKey(session, "o", t0 + 450);
+  assert.equal(session.status, "running");
+
+  // Type final char 'x' -> should finish immediately!
+  handleKey(session, "x", t0 + 500);
+  assert.equal(session.status, "finished");
+  assert.equal(session.endTime, t0 + 500);
+
+  const stats = calculateStats(session, t0 + 500);
+  assert.equal(stats.isFinished, true);
+  assert.equal(stats.timeLeft, null);
+  assert.equal(stats.wordCount, 2);
+});
+

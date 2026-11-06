@@ -5,13 +5,17 @@ var DEFAULT_SETTINGS = {
   mode: "quote",
   quoteLength: "short",
   duration: 15,
+  wordCount: 25,
+  punctuation: false,
+  numbers: false,
   soundVolume: 0.55
 };
 
 var VALID_SOUND_THEMES = ["thock", "clicky", "typewriter", "off"];
-var VALID_MODES = ["quote", "time"];
+var VALID_MODES = ["quote", "time", "words"];
 var VALID_QUOTE_LENGTHS = ["short", "medium"];
-var VALID_DURATIONS = [15, 30];
+var VALID_DURATIONS = [15, 30, 60];
+var VALID_WORD_COUNTS = [10, 25, 50, 100];
 
 function getDefaultSettings() {
   return Object.assign({}, DEFAULT_SETTINGS);
@@ -37,6 +41,15 @@ function parseSettings(jsonText) {
     if (VALID_DURATIONS.indexOf(parsed.duration) !== -1) {
       s.duration = parsed.duration;
     }
+    if (VALID_WORD_COUNTS.indexOf(parsed.wordCount) !== -1) {
+      s.wordCount = parsed.wordCount;
+    }
+    if (typeof parsed.punctuation === "boolean") {
+      s.punctuation = parsed.punctuation;
+    }
+    if (typeof parsed.numbers === "boolean") {
+      s.numbers = parsed.numbers;
+    }
     if (typeof parsed.soundVolume === "number" && parsed.soundVolume >= 0.0 && parsed.soundVolume <= 1.0) {
       s.soundVolume = parsed.soundVolume;
     }
@@ -54,6 +67,11 @@ function serializeSettings(settings) {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     DEFAULT_SETTINGS: DEFAULT_SETTINGS,
+    VALID_SOUND_THEMES: VALID_SOUND_THEMES,
+    VALID_MODES: VALID_MODES,
+    VALID_QUOTE_LENGTHS: VALID_QUOTE_LENGTHS,
+    VALID_DURATIONS: VALID_DURATIONS,
+    VALID_WORD_COUNTS: VALID_WORD_COUNTS,
     getDefaultSettings: getDefaultSettings,
     parseSettings: parseSettings,
     serializeSettings: serializeSettings

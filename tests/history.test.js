@@ -10,6 +10,12 @@ test("History: createEntry extracts values from stats", () => {
   assert.equal(entry.accuracy, 98);
   assert.equal(entry.mode, "quote");
   assert.equal(entry.quoteSource, "Dijkstra");
+
+  // Words mode entry
+  const wordsEntry = createEntry({ wpm: 110, rawWpm: 115, accuracy: 96, elapsedSeconds: 22.4 }, "words");
+  assert.equal(wordsEntry.mode, "words");
+  assert.equal(wordsEntry.wpm, 110);
+  assert.equal(wordsEntry.quoteSource, "");
 });
 
 test("History: addEntry unshifts and limits capacity", () => {

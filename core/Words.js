@@ -1004,9 +1004,35 @@ var WORDS = [
   "universe"
 ];
 
-function getRandomWords(count, avoidList) {
+function getRandomNumber() {
+  var roll = Math.random();
+  if (roll < 0.4) {
+    return "" + Math.floor(Math.random() * 100);
+  } else if (roll < 0.8) {
+    return "" + (Math.floor(Math.random() * 900) + 100);
+  } else {
+    return "" + (Math.floor(Math.random() * 50) + 1980);
+  }
+}
+
+function getRandomWords(count, avoidList, options) {
+  var targetCount = typeof count === "number" && count > 0 ? count : 40;
+
+  var recent = [];
+  var opts = {};
+
+  if (Array.isArray(avoidList)) {
+    recent = avoidList.slice(-10);
+    if (options && typeof options === "object") opts = options;
+  } else if (avoidList && typeof avoidList === "object") {
+    opts = avoidList;
+    if (Array.isArray(opts.recent)) recent = opts.recent.slice(-10);
+  }
+
+  var withPunctuation = !!opts.punctuation;
+  var withNumbers = !!opts.numbers;
+
   var pool = WORDS.slice();
-  var recent = (avoidList && Array.isArray(avoidList)) ? avoidList.slice(-10) : [];
   var result = [];
 
   for (var i = pool.length - 1; i > 0; i--) {
@@ -1017,7 +1043,11 @@ function getRandomWords(count, avoidList) {
   }
 
   var poolIndex = 0;
-  while (result.length < count) {
+  var lastWasNumber = false;
+  var capitalizeNext = withPunctuation;
+  var wordsSincePunct = 0;
+
+  while (result.length < targetCount) {
     if (poolIndex >= pool.length) {
       for (var k = pool.length - 1; k > 0; k--) {
         var r = Math.floor(Math.random() * (k + 1));
@@ -1027,10 +1057,60 @@ function getRandomWords(count, avoidList) {
       }
       poolIndex = 0;
     }
+
+    // Number injection
+    if (withNumbers && !lastWasNumber && (Math.random() < 0.14 || (result.length === Math.floor(targetCount / 2) && result.filter(function(w) { return /^\d+$/.test(w); }).length === 0))) {
+      var numStr = getRandomNumber();
+      result.push(numStr);
+      lastWasNumber = true;
+      capitalizeNext = false;
+      wordsSincePunct++;
+      continue;
+    }
+    lastWasNumber = false;
+
     var candidate = pool[poolIndex++];
-    if (result.length > 0 && result[result.length - 1] === candidate) continue;
+    if (result.length > 0 && result[result.length - 1].toLowerCase() === candidate.toLowerCase()) continue;
     if (result.length === 0 && recent.indexOf(candidate) >= 0 && pool.length > 20) continue;
-    result.push(candidate);
+
+    var word = candidate;
+
+    if (withPunctuation) {
+      if (capitalizeNext && word.length > 0) {
+        word = word.charAt(0).toUpperCase() + word.slice(1);
+        capitalizeNext = false;
+      }
+
+      wordsSincePunct++;
+
+      // Check for sentence end (period, question, exclamation)
+      var isLastWord = result.length === targetCount - 1;
+      if (isLastWord) {
+        word += ".";
+      } else if (wordsSincePunct >= 4 && Math.random() < 0.22) {
+        var endPunctRoll = Math.random();
+        if (endPunctRoll < 0.65) {
+          word += ".";
+        } else if (endPunctRoll < 0.85) {
+          word += "?";
+        } else {
+          word += "!";
+        }
+        capitalizeNext = true;
+        wordsSincePunct = 0;
+      } else if (wordsSincePunct >= 2 && Math.random() < 0.18) {
+        var midRoll = Math.random();
+        if (midRoll < 0.75) {
+          word += ",";
+        } else if (midRoll < 0.90) {
+          word += ";";
+        } else {
+          word = '"' + word + '"';
+        }
+      }
+    }
+
+    result.push(word);
   }
 
   return result;

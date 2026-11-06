@@ -8,6 +8,9 @@ test("Settings: getDefaultSettings returns safe default values", () => {
   assert.equal(defaults.mode, "quote");
   assert.equal(defaults.quoteLength, "short");
   assert.equal(defaults.duration, 15);
+  assert.equal(defaults.wordCount, 25);
+  assert.equal(defaults.punctuation, false);
+  assert.equal(defaults.numbers, false);
   assert.equal(defaults.soundVolume, 0.55);
 });
 
@@ -38,17 +41,37 @@ test("Settings: parseSettings validates and sanitizes input properties", () => {
   assert.equal(custom.duration, 30);
   assert.equal(custom.soundVolume, 0.8);
 
+  // New settings support: 60s duration, words mode, wordCount, punctuation, numbers
+  const wordsSettings = Settings.parseSettings(JSON.stringify({
+    mode: "words",
+    wordCount: 50,
+    duration: 60,
+    punctuation: true,
+    numbers: true
+  }));
+  assert.equal(wordsSettings.mode, "words");
+  assert.equal(wordsSettings.wordCount, 50);
+  assert.equal(wordsSettings.duration, 60);
+  assert.equal(wordsSettings.punctuation, true);
+  assert.equal(wordsSettings.numbers, true);
+
   // Invalid values should fallback to defaults
   const invalid = Settings.parseSettings(JSON.stringify({
     soundTheme: "hacker_neon",
     mode: "unsupported_mode",
     duration: 999,
+    wordCount: 333,
+    punctuation: "not-a-bool",
+    numbers: 123,
     soundVolume: 50.0
   }));
 
   assert.equal(invalid.soundTheme, "thock");
   assert.equal(invalid.mode, "quote");
   assert.equal(invalid.duration, 15);
+  assert.equal(invalid.wordCount, 25);
+  assert.equal(invalid.punctuation, false);
+  assert.equal(invalid.numbers, false);
   assert.equal(invalid.soundVolume, 0.55);
 });
 

@@ -17,9 +17,12 @@ Item {
 
   property bool opened: false
   property string activeView: "test" // "test" | "stats"
-  property string mode: "quote" // "quote" | "time"
+  property string mode: "quote" // "quote" | "time" | "words"
   property string quoteLength: "short" // "short" | "medium"
-  property int duration: 15 // 15 or 30 seconds
+  property int duration: 15 // 15, 30, or 60 seconds
+  property int wordCount: 25 // 10, 25, 50, or 100 words
+  property bool punctuation: false
+  property bool numbers: false
   property var session: null
   property var stats: ({ wpm: 0, rawWpm: 0, accuracy: 100, timeLeft: 15, elapsedSeconds: 0, isFinished: false, status: "idle", quote: null, totalKeypresses: 0 })
   property int sessionRevision: 0
@@ -69,6 +72,18 @@ Item {
     root.saveSettings()
   }
 
+  function setWordCount(count) {
+    root.wordCount = count
+    root.resetTest()
+    root.saveSettings()
+  }
+
+  function toggleWordCount() {
+    var counts = [10, 25, 50, 100]
+    var idx = (counts.indexOf(root.wordCount) + 1) % counts.length
+    root.setWordCount(counts[idx])
+  }
+
   function toggleQuoteLength() {
     root.quoteLength = (root.quoteLength === "short") ? "medium" : "short"
     root.resetTest()
@@ -76,23 +91,39 @@ Item {
   }
 
   function toggleDuration() {
-    root.duration = (root.duration === 15) ? 30 : 15
-    root.resetTest()
-    root.saveSettings()
+    var durations = [15, 30, 60]
+    var idx = (durations.indexOf(root.duration) + 1) % durations.length
+    root.setDuration(durations[idx])
   }
 
   function toggleMode() {
     root.activeView = "test"
-    root.setMode(root.mode === "quote" ? "time" : "quote")
+    if (root.mode === "time") root.setMode("words")
+    else if (root.mode === "words") root.setMode("quote")
+    else root.setMode("time")
   }
 
   function toggleLengthOrDuration() {
     root.activeView = "test"
     if (root.mode === "quote") {
       root.toggleQuoteLength()
+    } else if (root.mode === "words") {
+      root.toggleWordCount()
     } else {
       root.toggleDuration()
     }
+  }
+
+  function togglePunctuation() {
+    root.punctuation = !root.punctuation
+    root.resetTest()
+    root.saveSettings()
+  }
+
+  function toggleNumbers() {
+    root.numbers = !root.numbers
+    root.resetTest()
+    root.saveSettings()
   }
 
   function toggleStatsView() {
@@ -117,6 +148,9 @@ Item {
     root.mode = s.mode
     root.quoteLength = s.quoteLength
     root.duration = s.duration
+    root.wordCount = s.wordCount
+    root.punctuation = s.punctuation
+    root.numbers = s.numbers
     root.soundVolume = s.soundVolume
     root.settingsLoaded = true
     root.resetTest()
@@ -132,6 +166,9 @@ Item {
       mode: root.mode,
       quoteLength: root.quoteLength,
       duration: root.duration,
+      wordCount: root.wordCount,
+      punctuation: root.punctuation,
+      numbers: root.numbers,
       soundVolume: root.soundVolume
     }
     settingsFile.setText(SettingsModule.serializeSettings(data))
@@ -163,8 +200,11 @@ Item {
     if (wordsFlickable) wordsFlickable.contentY = 0
 
     if (root.mode === "time") {
-      var wordList = WordsModule.getRandomWords(80)
+      var wordList = WordsModule.getRandomWords(80, { punctuation: root.punctuation, numbers: root.numbers })
       root.session = EngineModule.createSession({ mode: "time", duration: root.duration, words: wordList })
+    } else if (root.mode === "words") {
+      var wordList = WordsModule.getRandomWords(root.wordCount, { punctuation: root.punctuation, numbers: root.numbers })
+      root.session = EngineModule.createSession({ mode: "words", words: wordList })
     } else {
       var lastQuoteId = root.session && root.session.quote ? root.session.quote.id : null
       var q = QuotesModule.getRandomQuote(root.quoteLength, lastQuoteId)
@@ -406,6 +446,20 @@ Item {
             return
           }
 
+          // Ctrl+P: Toggle punctuation
+          if (isCtrl && event.key === Qt.Key_P) {
+            root.togglePunctuation()
+            event.accepted = true
+            return
+          }
+
+          // Ctrl+N: Toggle numbers
+          if (isCtrl && event.key === Qt.Key_N) {
+            root.toggleNumbers()
+            event.accepted = true
+            return
+          }
+
           if (root.activeView === "stats") {
             if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
               root.activeView = "test"
@@ -500,6 +554,104 @@ Item {
             anchors.centerIn: parent
             spacing: 6
 
+            // Time Pill
+            Rectangle {
+              height: 28
+              width: timeContentRow.width + 18
+              radius: 7
+              color: (root.activeView === "test" && root.mode === "time")
+                ? Commons.Color.menu.selectedBackground
+                : "transparent"
+
+              Row {
+                id: timeContentRow
+                anchors.centerIn: parent
+                spacing: 6
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Time"
+                  font.family: Style.font.family
+                  font.pixelSize: 13
+                  font.bold: root.mode === "time"
+                  color: (root.activeView === "test" && root.mode === "time")
+                    ? Commons.Color.menu.selectedText
+                    : Util.alpha(Commons.Color.menu.text, 0.5)
+                }
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  visible: root.activeView === "test" && root.mode === "time"
+                  text: root.duration + "s ▾"
+                  font.family: Style.font.family
+                  font.pixelSize: 11
+                  color: Util.alpha(Commons.Color.menu.selectedText, 0.75)
+                }
+              }
+
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  if (root.activeView === "test" && root.mode === "time") {
+                    root.toggleDuration()
+                  } else {
+                    root.activeView = "test"
+                    root.setMode("time")
+                  }
+                }
+              }
+            }
+
+            // Words Pill
+            Rectangle {
+              height: 28
+              width: wordsContentRow.width + 18
+              radius: 7
+              color: (root.activeView === "test" && root.mode === "words")
+                ? Commons.Color.menu.selectedBackground
+                : "transparent"
+
+              Row {
+                id: wordsContentRow
+                anchors.centerIn: parent
+                spacing: 6
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Words"
+                  font.family: Style.font.family
+                  font.pixelSize: 13
+                  font.bold: root.mode === "words"
+                  color: (root.activeView === "test" && root.mode === "words")
+                    ? Commons.Color.menu.selectedText
+                    : Util.alpha(Commons.Color.menu.text, 0.5)
+                }
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  visible: root.activeView === "test" && root.mode === "words"
+                  text: root.wordCount + " ▾"
+                  font.family: Style.font.family
+                  font.pixelSize: 11
+                  color: Util.alpha(Commons.Color.menu.selectedText, 0.75)
+                }
+              }
+
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  if (root.activeView === "test" && root.mode === "words") {
+                    root.toggleWordCount()
+                  } else {
+                    root.activeView = "test"
+                    root.setMode("words")
+                  }
+                }
+              }
+            }
+
             // Quote Pill
             Rectangle {
               height: 28
@@ -557,52 +709,59 @@ Item {
               color: Util.alpha(Commons.Color.menu.text, 0.12)
             }
 
-            // Time Pill
+            // Punctuation Toggle Pill
             Rectangle {
               height: 28
-              width: timeContentRow.width + 18
+              width: puncText.contentWidth + 14
               radius: 7
-              color: (root.activeView === "test" && root.mode === "time")
+              color: root.punctuation
                 ? Commons.Color.menu.selectedBackground
                 : "transparent"
 
-              Row {
-                id: timeContentRow
+              Text {
+                id: puncText
                 anchors.centerIn: parent
-                spacing: 6
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Time"
-                  font.family: Style.font.family
-                  font.pixelSize: 13
-                  font.bold: root.mode === "time"
-                  color: (root.activeView === "test" && root.mode === "time")
-                    ? Commons.Color.menu.selectedText
-                    : Util.alpha(Commons.Color.menu.text, 0.5)
-                }
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  visible: root.activeView === "test" && root.mode === "time"
-                  text: root.duration + "s ▾"
-                  font.family: Style.font.family
-                  font.pixelSize: 11
-                  color: Util.alpha(Commons.Color.menu.selectedText, 0.75)
-                }
+                text: "punc"
+                font.family: Style.font.family
+                font.pixelSize: 12
+                font.bold: root.punctuation
+                color: root.punctuation
+                  ? Commons.Color.menu.selectedText
+                  : Util.alpha(Commons.Color.menu.text, 0.5)
               }
 
               MouseArea {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                  if (root.activeView === "test" && root.mode === "time") {
-                    root.toggleDuration()
-                  } else {
-                    root.activeView = "test"
-                    root.setMode("time")
-                  }
-                }
+                onClicked: root.togglePunctuation()
+              }
+            }
+
+            // Numbers Toggle Pill
+            Rectangle {
+              height: 28
+              width: numText.contentWidth + 14
+              radius: 7
+              color: root.numbers
+                ? Commons.Color.menu.selectedBackground
+                : "transparent"
+
+              Text {
+                id: numText
+                anchors.centerIn: parent
+                text: "123"
+                font.family: Style.font.family
+                font.pixelSize: 12
+                font.bold: root.numbers
+                color: root.numbers
+                  ? Commons.Color.menu.selectedText
+                  : Util.alpha(Commons.Color.menu.text, 0.5)
+              }
+
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.toggleNumbers()
               }
             }
 
@@ -1336,6 +1495,45 @@ Item {
               Text {
                 anchors.centerIn: parent
                 text: "F1"
+                font.family: Style.font.family
+                font.pixelSize: 11
+                font.bold: true
+                color: Commons.Color.menu.text
+              }
+            }
+          }
+
+          Rectangle {
+            width: 1
+            height: 14
+            anchors.verticalCenter: parent.verticalCenter
+            color: Util.alpha(Commons.Color.menu.text, 0.12)
+          }
+
+          // Option Hint
+          Row {
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 6
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: "Option"
+              font.family: Style.font.family
+              font.pixelSize: 12
+              color: Util.alpha(Commons.Color.menu.text, 0.5)
+            }
+
+            Rectangle {
+              width: 30
+              height: 22
+              radius: 5
+              color: Util.alpha(Commons.Color.menu.text, 0.08)
+              border.color: Util.alpha(Commons.Color.menu.text, 0.15)
+              border.width: 1
+
+              Text {
+                anchors.centerIn: parent
+                text: "F2"
                 font.family: Style.font.family
                 font.pixelSize: 11
                 font.bold: true

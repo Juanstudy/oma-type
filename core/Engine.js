@@ -2,7 +2,7 @@
 
 function createSession(opts) {
   var options = opts || {};
-  var mode = options.mode || "time"; // "time" | "quote"
+  var mode = options.mode || "time"; // "time" | "quote" | "words"
   var duration = typeof options.duration === "number" ? options.duration : 15;
   var wordList = options.words || [];
   var quote = options.quote || null;
@@ -175,8 +175,8 @@ function handleKey(session, key, timestamp) {
     }
     session.charIndex++;
 
-    // In quote mode: if this was the last char of the last word, finish immediately!
-    if (session.mode === "quote" &&
+    // In quote or words mode: if this was the last char of the last word, finish immediately!
+    if ((session.mode === "quote" || session.mode === "words") &&
         session.wordIndex === session.words.length - 1 &&
         session.charIndex === currentWord.chars.length) {
       finishSession(session, now);
@@ -247,7 +247,8 @@ function calculateStats(session, timestamp) {
     correctChars: session.correctChars,
     incorrectChars: session.incorrectChars,
     extraChars: session.extraChars,
-    quote: session.quote
+    quote: session.quote,
+    wordCount: session.words.length
   };
 }
 
