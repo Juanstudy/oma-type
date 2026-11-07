@@ -21,6 +21,7 @@ Item {
   property string quoteLength: "short" // "short" | "medium"
   property int duration: 15 // 15, 30, or 60 seconds
   property int wordCount: 25 // 10, 25, 50, or 100 words
+  property string language: "english" // "english" | "spanish"
   property bool punctuation: false
   property bool numbers: false
   property var session: null
@@ -127,6 +128,18 @@ Item {
     root.saveSettings()
   }
 
+  function setLanguage(lang) {
+    if (root.language === lang) return
+    root.language = lang
+    root.resetTest()
+    root.saveSettings()
+    root.showToast(root.language === "spanish" ? "Idioma: Español" : "Language: English")
+  }
+
+  function toggleLanguage() {
+    root.setLanguage(root.language === "spanish" ? "english" : "spanish")
+  }
+
   function toggleStatsView() {
     root.activeView = (root.activeView === "stats") ? "test" : "stats"
     if (root.activeView === "stats") {
@@ -182,6 +195,7 @@ Item {
     root.quoteLength = s.quoteLength
     root.duration = s.duration
     root.wordCount = s.wordCount
+    root.language = s.language || "english"
     root.punctuation = s.punctuation
     root.numbers = s.numbers
     root.soundVolume = s.soundVolume
@@ -200,6 +214,7 @@ Item {
       quoteLength: root.quoteLength,
       duration: root.duration,
       wordCount: root.wordCount,
+      language: root.language,
       punctuation: root.punctuation,
       numbers: root.numbers,
       soundVolume: root.soundVolume
@@ -237,10 +252,10 @@ Item {
     if (wordsFlickable) wordsFlickable.contentY = 0
 
     if (root.mode === "time") {
-      var wordList = WordsModule.getRandomWords(80, { punctuation: root.punctuation, numbers: root.numbers })
+      var wordList = WordsModule.getRandomWords(80, { language: root.language, punctuation: root.punctuation, numbers: root.numbers })
       root.session = EngineModule.createSession({ mode: "time", duration: root.duration, words: wordList })
     } else if (root.mode === "words") {
-      var wordList = WordsModule.getRandomWords(root.wordCount, { punctuation: root.punctuation, numbers: root.numbers })
+      var wordList = WordsModule.getRandomWords(root.wordCount, { language: root.language, punctuation: root.punctuation, numbers: root.numbers })
       root.session = EngineModule.createSession({ mode: "words", words: wordList })
     } else {
       var lastQuoteId = root.session && root.session.quote ? root.session.quote.id : null
@@ -497,6 +512,13 @@ Item {
             return
           }
 
+          // Ctrl+I: Toggle language (English <-> Spanish)
+          if (isCtrl && event.key === Qt.Key_I) {
+            root.toggleLanguage()
+            event.accepted = true
+            return
+          }
+
           // Ctrl+Up: Increase volume
           if (isCtrl && event.key === Qt.Key_Up) {
             root.adjustVolume(0.05)
@@ -681,6 +703,34 @@ Item {
                 font.family: Style.font.family
                 font.pixelSize: 12
                 color: Commons.Color.menu.selectedText
+              }
+
+              // Language toggle chip (ES / EN)
+              Rectangle {
+                visible: root.mode !== "quote"
+                height: 20
+                width: langLabel.contentWidth + 10
+                radius: 4
+                anchors.verticalCenter: parent.verticalCenter
+                color: root.language === "spanish" ? Util.alpha(Commons.Color.menu.selectedText, 0.2) : "transparent"
+                border.color: root.language === "spanish" ? Util.alpha(Commons.Color.menu.selectedText, 0.4) : Util.alpha(Commons.Color.menu.text, 0.15)
+                border.width: 1
+
+                Text {
+                  id: langLabel
+                  anchors.centerIn: parent
+                  text: root.language === "spanish" ? "ES" : "EN"
+                  font.family: Style.font.family
+                  font.pixelSize: 10
+                  font.bold: true
+                  color: root.language === "spanish" ? Commons.Color.menu.selectedText : Util.alpha(Commons.Color.menu.text, 0.45)
+                }
+
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.toggleLanguage()
+                }
               }
 
               // Punctuation toggle chip
@@ -1465,7 +1515,7 @@ Item {
 
           Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: "F1 mode · F2 option · F3 sound · F4 stats"
+            text: "F1 mode · F2 option · F3 sound · F4 stats · ^I lang"
             font.family: Style.font.family
             font.pixelSize: 11
             color: Util.alpha(Commons.Color.menu.text, 0.3)

@@ -203,3 +203,51 @@ test("Engine Words Mode: finishes immediately on last char of last word without 
   assert.equal(stats.wordCount, 2);
 });
 
+test("Engine Spanish: correctly handles accented vowels and enye (á, é, í, ó, ú, ñ)", () => {
+  const session = createSession({
+    mode: "words",
+    words: ["año", "más"]
+  });
+
+  const t0 = 100000;
+  // Type 'a'
+  handleKey(session, "a", t0);
+  assert.equal(session.words[0].chars[0].state, "correct");
+
+  // Type 'ñ'
+  handleKey(session, "ñ", t0 + 100);
+  assert.equal(session.words[0].chars[1].state, "correct");
+
+  // Type 'o'
+  handleKey(session, "o", t0 + 200);
+  assert.equal(session.words[0].chars[2].state, "correct");
+
+  // Advance with space
+  handleKey(session, " ", t0 + 300);
+  assert.equal(session.wordIndex, 1);
+  assert.equal(session.charIndex, 0);
+
+  // Type 'm'
+  handleKey(session, "m", t0 + 400);
+  // Type 'á'
+  handleKey(session, "á", t0 + 500);
+  assert.equal(session.words[1].chars[1].state, "correct");
+
+  // Backspace on 'á'
+  handleKey(session, "Backspace", t0 + 550);
+  assert.equal(session.charIndex, 1);
+  assert.equal(session.words[1].chars[1].state, "pending");
+
+  // Retype 'á' and 's'
+  handleKey(session, "á", t0 + 600);
+  handleKey(session, "s", t0 + 700);
+
+  // Test should finish on last char of 'más'
+  assert.equal(session.status, "finished");
+  assert.equal(session.correctChars, 3 + 1 + 3); // "año" (3) + space (1) + "más" (3) = 7
+
+  const stats = calculateStats(session, t0 + 700);
+  assert.equal(stats.accuracy, 78);
+  assert.ok(stats.wpm > 0);
+});
+

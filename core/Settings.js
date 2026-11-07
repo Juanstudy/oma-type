@@ -6,6 +6,7 @@ var DEFAULT_SETTINGS = {
   quoteLength: "short",
   duration: 15,
   wordCount: 25,
+  language: "english",
   punctuation: false,
   numbers: false,
   soundVolume: 0.55
@@ -16,6 +17,7 @@ var VALID_MODES = ["quote", "time", "words"];
 var VALID_QUOTE_LENGTHS = ["short", "medium"];
 var VALID_DURATIONS = [15, 30, 60];
 var VALID_WORD_COUNTS = [10, 25, 50, 100];
+var VALID_LANGUAGES = ["english", "spanish"];
 
 function getDefaultSettings() {
   return Object.assign({}, DEFAULT_SETTINGS);
@@ -43,6 +45,9 @@ function parseSettings(jsonText) {
     }
     if (VALID_WORD_COUNTS.indexOf(parsed.wordCount) !== -1) {
       s.wordCount = parsed.wordCount;
+    }
+    if (VALID_LANGUAGES.indexOf(parsed.language) !== -1) {
+      s.language = parsed.language;
     }
     if (typeof parsed.punctuation === "boolean") {
       s.punctuation = parsed.punctuation;
@@ -72,6 +77,7 @@ if (typeof module !== "undefined" && module.exports) {
     VALID_QUOTE_LENGTHS: VALID_QUOTE_LENGTHS,
     VALID_DURATIONS: VALID_DURATIONS,
     VALID_WORD_COUNTS: VALID_WORD_COUNTS,
+    VALID_LANGUAGES: VALID_LANGUAGES,
     getDefaultSettings: getDefaultSettings,
     parseSettings: parseSettings,
     serializeSettings: serializeSettings

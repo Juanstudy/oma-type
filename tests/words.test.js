@@ -59,3 +59,19 @@ test("Words: getRandomWords supports both punctuation and numbers simultaneously
   assert.equal(hasPunctuation, true);
   assert.equal(hasCapital, true);
 });
+
+test("Words: getRandomWords with language: 'spanish' produces authentic Spanish words with accents and ñ", () => {
+  const words = Words.getRandomWords(100, { language: "spanish" });
+  assert.equal(words.length, 100);
+
+  // Over 100 random words in Spanish, we expect to find at least some accented chars or ñ
+  let hasSpanishAccentOrEnye = false;
+  for (const w of words) {
+    if (/[áéíóúñÁÉÍÓÚÑ]/.test(w)) {
+      hasSpanishAccentOrEnye = true;
+      break;
+    }
+  }
+  assert.equal(hasSpanishAccentOrEnye, true, "Spanish random words should contain accented characters or ñ");
+  assert.ok(Array.isArray(Words.WORDS_ES) && Words.WORDS_ES.length >= 900, "WORDS_ES should be exposed and contain ~1k words");
+});

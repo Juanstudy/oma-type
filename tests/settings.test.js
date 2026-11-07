@@ -9,6 +9,7 @@ test("Settings: getDefaultSettings returns safe default values", () => {
   assert.equal(defaults.quoteLength, "short");
   assert.equal(defaults.duration, 15);
   assert.equal(defaults.wordCount, 25);
+  assert.equal(defaults.language, "english");
   assert.equal(defaults.punctuation, false);
   assert.equal(defaults.numbers, false);
   assert.equal(defaults.soundVolume, 0.55);
@@ -61,6 +62,13 @@ test("Settings: parseSettings validates and sanitizes input properties", () => {
 
   const topreSettings = Settings.parseSettings(JSON.stringify({ soundTheme: "topre" }));
   assert.equal(topreSettings.soundTheme, "topre");
+
+  // Language settings: english and spanish
+  const esSettings = Settings.parseSettings(JSON.stringify({ language: "spanish" }));
+  assert.equal(esSettings.language, "spanish");
+
+  const invalidLang = Settings.parseSettings(JSON.stringify({ language: "klingon" }));
+  assert.equal(invalidLang.language, "english");
 
   // Invalid values should fallback to defaults
   const invalid = Settings.parseSettings(JSON.stringify({

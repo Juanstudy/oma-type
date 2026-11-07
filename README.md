@@ -12,7 +12,8 @@ Runs natively inside `omarchy-shell` (Quickshell / Qt Quick) with sub-millisecon
 
 * **⚡ Ultra-low Latency:** Rendered natively via Wayland `wlr-layer-shell` and Qt Quick SceneGraph. No Electron, no browser overhead.
 * **⌨ Mechanical Switch Sounds:** Realistic audio feedback (`thock`, `cream`, `topre`, `clicky`, `typewriter`) powered by native PipeWire (`pw-play`) out-of-process for zero lag and zero GUI lockups.
-* **📖 500 Curated Quotes & 1,000 Words:** Sourced from official Monkeytype collections (`english_1k` and quotes) with author attributions.
+* **📖 500 Curated Quotes & 1,000 Words:** Sourced from official Monkeytype collections (`english_1k`, `spanish_1k`, and quotes) with author attributions.
+* **🇪🇸 Multilingual (English & Spanish):** 1,000 common words in Spanish (`spanish_1k`) with native Wayland dead-key support for accented vowels (`á`, `é`, `í`, `ó`, `ú`) and `ñ`.
 * **🎯 Multiple Practice Modes:** `Time` (15s, 30s, 60s), `Words` (10, 25, 50, 100), and `Quote` (short, medium) with optional punctuation and numbers toggles.
 * **📊 Swiss-Minimalist Stats & Graph:** Real-time analytics, Best WPM, Average WPM, and a smooth hardware-rendered Bézier progress curve.
 * **🎨 Native Omarchy Theme:** Automatically inherits your active Omarchy theme colors (`qs.Commons.Color`) and monospace font.
@@ -57,6 +58,7 @@ bin/oma-type doctor
 | `F4` | `Ctrl + H` / `Ctrl + E` | Toggle stats & analytics graph |
 | `Ctrl + Up` | — | Increase volume (+5%) with floating HUD toast |
 | `Ctrl + Down` | — | Decrease volume (-5%) with floating HUD toast |
+| `Ctrl + I` | — | Toggle language (`English` ↔ `Spanish`) with floating HUD toast |
 | `Ctrl + P` | — | Toggle punctuation marks and capitals (`punc`) |
 | `Ctrl + N` | — | Toggle numbers injection (`123`) |
 | `Tab` | — | Restart test with fresh text |
@@ -78,6 +80,7 @@ Settings are automatically saved on every change to `~/.config/oma-type/settings
   "quoteLength": "short",
   "duration": 15,
   "wordCount": 25,
+  "language": "english",
   "punctuation": false,
   "numbers": false,
   "soundVolume": 0.55
@@ -88,6 +91,7 @@ Settings are automatically saved on every change to `~/.config/oma-type/settings
 * `mode`: `"time"` | `"words"` | `"quote"`
 * `duration`: `15` | `30` | `60`
 * `wordCount`: `10` | `25` | `50` | `100`
+* `language`: `"english"` | `"spanish"`
 * `quoteLength`: `"short"` | `"medium"`
 * `punctuation`: `true` | `false`
 * `numbers`: `true` | `false`
