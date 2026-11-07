@@ -13,11 +13,11 @@ Soporte completo y nativo para práctica de mecanografía en idioma español con
 
 ## Tasks
 
-* T1: Actualizar `VALID_LANGUAGES` en `core/Settings.js` y pruebas en `tests/settings.test.js` [S2, S6] (route: inline)
-* T2: Integrar dataset `WORDS_ES` y soporte de `language` en `core/Words.js` y `tests/words.test.js` [S1, S3, S6] (route: inline)
-* T3: Verificar compatibilidad del motor para tildes y ñ con tests en `tests/engine.test.js` [S4, S6] (route: inline)
-* T4: Integrar selector de idioma (`ES`/`EN`), atajo `Ctrl+I` y HUD toast en `TypingOverlay.qml` [S4, S5] (route: inline)
-* T5: Actualizar tablas y configuraciones en `README.md` [S7] (route: inline)
+* T1: Actualizar `VALID_LANGUAGES` en `core/Settings.js` y pruebas en `tests/settings.test.js` [S2, S6] (route: inline, commit: 3b07d77)
+* T2: Integrar dataset `WORDS_ES` y soporte de `language` en `core/Words.js` y `tests/words.test.js` [S1, S3, S6] (route: inline, commit: 3b07d77)
+* T3: Verificar compatibilidad del motor para tildes y ñ con tests en `tests/engine.test.js` [S4, S6] (route: inline, commit: 3b07d77)
+* T4: Integrar selector de idioma (`ES`/`EN`), atajo `Ctrl+I` y HUD toast en `TypingOverlay.qml` [S4, S5] (route: inline, commit: 3b07d77)
+* T5: Actualizar tablas y configuraciones en `README.md` [S7] (route: inline, commit: 3b07d77)
 
 ## Log
 
