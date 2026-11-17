@@ -18,7 +18,7 @@ Item {
   id: root
 
   property bool opened: false
-  property string activeView: "test" // "test" | "stats"
+  property string activeView: "test" // "test" | "stats" | "settings"
   property string mode: "quote" // "quote" | "time" | "words"
   property string quoteLength: "short" // "short" | "medium"
   property int duration: 15 // 15, 30, or 60 seconds
@@ -538,6 +538,11 @@ Item {
 
         Keys.onPressed: function(event) {
           if (event.key === Qt.Key_Escape) {
+            if (root.activeView === "settings") {
+              root.activeView = "test"
+              event.accepted = true
+              return
+            }
             if (root.activeView === "stats") {
               root.activeView = "test"
               event.accepted = true
@@ -557,6 +562,13 @@ Item {
 
           // Shortcuts: F-keys and Ctrl combinations
           var isCtrl = (event.modifiers & Qt.ControlModifier)
+
+          // Ctrl+Comma: Toggle Settings panel
+          if (isCtrl && event.key === Qt.Key_Comma) {
+            root.activeView = (root.activeView === "settings") ? "test" : "settings"
+            event.accepted = true
+            return
+          }
 
           // F1 or Ctrl+M: Toggle Mode (Quote <-> Time)
           if (event.key === Qt.Key_F1 || (isCtrl && event.key === Qt.Key_M)) {
@@ -657,6 +669,10 @@ Item {
             }
             return
           }
+
+          // Settings view swallows everything so typing never reaches the
+          // test handler while the panel is open (shortcuts above still work)
+          if (root.activeView === "settings") return
 
           if (root.stats.isFinished) {
             if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
@@ -1606,6 +1622,85 @@ Item {
             }
           }
         }
+
+        // =================================== VIEW 3: SETTINGS PANEL
+        // Stateless: binds to root properties; writes go through
+        // settingsChanged -> setters -> saveSettings
+        SettingsPanel {
+          id: settingsPanel
+          open: root.activeView === "settings"
+          mode: root.mode
+          quoteLength: root.quoteLength
+          duration: root.duration
+          wordCount: root.wordCount
+          language: root.language
+          punctuation: root.punctuation
+          numbers: root.numbers
+          soundTheme: root.soundTheme
+          soundVolume: root.soundVolume
+          bgImageEnabled: root.bgImageEnabled
+          bgImagePath: root.bgImagePath
+          bgBlur: root.bgBlur
+          bgDither: root.bgDither
+          bgDitherIntensity: root.bgDitherIntensity
+          bgColorLevels: root.bgColorLevels
+          bgCellSize: root.bgCellSize
+          bgDim: root.bgDim
+          bgAdaptiveDim: root.bgAdaptiveDim
+          bgVignette: root.bgVignette
+
+          onSettingsChanged: function(key, value) {
+            if (key === "mode") root.setMode(value)
+            else if (key === "quoteLength") root.setQuoteLength(value)
+            else if (key === "duration") root.setDuration(Number(value))
+            else if (key === "wordCount") root.setWordCount(Number(value))
+            else if (key === "language") root.setLanguage(value)
+            else if (key === "punctuation") {
+              if (root.punctuation !== value) {
+                root.punctuation = value
+                root.resetTest()
+              }
+            }
+            else if (key === "numbers") {
+              if (root.numbers !== value) {
+                root.numbers = value
+                root.resetTest()
+              }
+            }
+            else if (key === "soundTheme") {
+              root.soundTheme = value
+              root.lastSoundTime = 0
+              root.playKeySound()
+            }
+            else if (key === "soundVolume") root.soundVolume = value
+            else if (key === "bgImageEnabled") {
+              root.bgImageEnabled = value
+              root.showToast(root.bgImageEnabled ? "Background: On" : "Background: Off")
+            }
+            else if (key === "bgImagePath") {
+              root.bgImagePath = value
+              if (value !== "") root.bgImageEnabled = true
+              root.showToast("Background set")
+            }
+            else if (key === "bgBlur") root.bgBlur = value
+            else if (key === "bgDither") {
+              root.bgDither = value
+              root.showToast(root.bgDither ? "Dither: On" : "Dither: Off")
+            }
+            else if (key === "bgDitherIntensity") root.bgDitherIntensity = value
+            else if (key === "bgColorLevels") root.bgColorLevels = value
+            else if (key === "bgCellSize") root.bgCellSize = value
+            else if (key === "bgDim") root.bgDim = value
+            else if (key === "bgAdaptiveDim") root.bgAdaptiveDim = value
+            else if (key === "bgVignette") {
+              root.bgVignette = value
+              root.showToast(root.bgVignette ? "Vignette: On" : "Vignette: Off")
+            }
+          }
+          onSettingsCommit: root.saveSettings()
+          onCloseRequested: root.activeView = "test"
+          onFocusReleased: keyCatcher.forceActiveFocus()
+        }
       }
 
       // ---------------------------------------------------- Footer (Scaled 1.25x)
@@ -1670,7 +1765,7 @@ Item {
 
           OutlinedText {
             anchors.verticalCenter: parent.verticalCenter
-            text: "F1 mode · F2 option · F3 sound · F4 stats · ^I lang"
+            text: "F1 mode · F2 option · F3 sound · F4 stats · ^I lang · ^, settings"
             font.family: Style.font.family
             font.pixelSize: 11
             color: Util.alpha(Commons.Color.menu.text, 0.3)
