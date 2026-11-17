@@ -11,6 +11,7 @@ import "core/Quotes.js" as QuotesModule
 import "core/Engine.js" as EngineModule
 import "core/History.js" as HistoryModule
 import "core/Settings.js" as SettingsModule
+import "core/Keys.js" as KeysModule
 import "components"
 
 Item {
@@ -660,6 +661,10 @@ Item {
 
           // Ignore any other Ctrl combination so it doesn't feed stray control chars
           if (isCtrl) return
+
+          // Dead keys (´ ` ¨ ^ ~) compose into the NEXT key event, which carries
+          // the final accented character; typing them literally corrupts stats.
+          if (KeysModule.isDeadKey(event.key)) return
 
           var keyStr = ""
           if (event.key === Qt.Key_Backspace) keyStr = "Backspace"
