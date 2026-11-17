@@ -302,7 +302,7 @@ Item {
       root.session = EngineModule.createSession({ mode: "words", words: wordList })
     } else {
       var lastQuoteId = root.session && root.session.quote ? root.session.quote.id : null
-      var q = QuotesModule.getRandomQuote(root.quoteLength, lastQuoteId)
+      var q = QuotesModule.getRandomQuote(root.quoteLength, lastQuoteId, root.language)
       var words = QuotesModule.splitQuoteIntoWords(q.text)
       root.session = EngineModule.createSession({ mode: "quote", words: words, quote: q })
     }
