@@ -9,7 +9,17 @@ var DEFAULT_SETTINGS = {
   language: "english",
   punctuation: false,
   numbers: false,
-  soundVolume: 0.55
+  soundVolume: 0.55,
+  bgImageEnabled: false,
+  bgImagePath: "",
+  bgBlur: 0.04,
+  bgDither: true,
+  bgDitherIntensity: 1,
+  bgColorLevels: 2,
+  bgCellSize: 2,
+  bgAdaptiveDim: 0.65,
+  bgDim: 0.4,
+  bgVignette: false
 };
 
 var VALID_SOUND_THEMES = ["thock", "cream", "topre", "clicky", "typewriter", "off"];
@@ -57,6 +67,36 @@ function parseSettings(jsonText) {
     }
     if (typeof parsed.soundVolume === "number" && parsed.soundVolume >= 0.0 && parsed.soundVolume <= 1.0) {
       s.soundVolume = parsed.soundVolume;
+    }
+    if (typeof parsed.bgImageEnabled === "boolean") {
+      s.bgImageEnabled = parsed.bgImageEnabled;
+    }
+    if (typeof parsed.bgImagePath === "string") {
+      s.bgImagePath = parsed.bgImagePath;
+    }
+    if (typeof parsed.bgBlur === "number" && parsed.bgBlur >= 0.0 && parsed.bgBlur <= 1.0) {
+      s.bgBlur = parsed.bgBlur;
+    }
+    if (typeof parsed.bgDither === "boolean") {
+      s.bgDither = parsed.bgDither;
+    }
+    if (typeof parsed.bgDitherIntensity === "number" && parsed.bgDitherIntensity >= 0.0 && parsed.bgDitherIntensity <= 1.0) {
+      s.bgDitherIntensity = parsed.bgDitherIntensity;
+    }
+    if (typeof parsed.bgColorLevels === "number" && parsed.bgColorLevels >= 2 && parsed.bgColorLevels <= 64) {
+      s.bgColorLevels = Math.round(parsed.bgColorLevels);
+    }
+    if (typeof parsed.bgCellSize === "number" && parsed.bgCellSize >= 1 && parsed.bgCellSize <= 6) {
+      s.bgCellSize = Math.round(parsed.bgCellSize);
+    }
+    if (typeof parsed.bgAdaptiveDim === "number" && parsed.bgAdaptiveDim >= 0.0 && parsed.bgAdaptiveDim <= 1.0) {
+      s.bgAdaptiveDim = parsed.bgAdaptiveDim;
+    }
+    if (typeof parsed.bgDim === "number" && parsed.bgDim >= 0.0 && parsed.bgDim <= 1.0) {
+      s.bgDim = parsed.bgDim;
+    }
+    if (typeof parsed.bgVignette === "boolean") {
+      s.bgVignette = parsed.bgVignette;
     }
   } catch (e) {
     return s;

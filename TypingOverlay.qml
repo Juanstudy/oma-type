@@ -11,6 +11,7 @@ import "core/Quotes.js" as QuotesModule
 import "core/Engine.js" as EngineModule
 import "core/History.js" as HistoryModule
 import "core/Settings.js" as SettingsModule
+import "components"
 
 Item {
   id: root
@@ -31,6 +32,18 @@ Item {
 
   property string soundTheme: "thock" // "thock" | "clicky" | "typewriter" | "off"
   property double soundVolume: 0.55
+  property bool bgImageEnabled: false
+  property string bgImagePath: ""
+  property double bgBlur: 0.04
+  property bool bgDither: true
+  property double bgDitherIntensity: 1
+
+  property double bgColorLevels: 2
+  property double bgCellSize: 2
+  property double bgAdaptiveDim: 0.65
+
+  property double bgDim: 0.4
+  property bool bgVignette: false
   property bool settingsLoaded: false
   property string soundBaseDir: Quickshell.env("HOME") + "/Projects/oma-type/assets/sounds"
   property double lastSoundTime: 0
@@ -199,6 +212,17 @@ Item {
     root.punctuation = s.punctuation
     root.numbers = s.numbers
     root.soundVolume = s.soundVolume
+    root.bgImageEnabled = s.bgImageEnabled
+    root.bgImagePath = s.bgImagePath
+    root.bgBlur = s.bgBlur
+    root.bgDither = s.bgDither
+    root.bgDitherIntensity = s.bgDitherIntensity
+    root.bgColorLevels = s.bgColorLevels
+    root.bgCellSize = s.bgCellSize
+    root.bgAdaptiveDim = s.bgAdaptiveDim
+    root.bgColorLevels = s.bgColorLevels
+    root.bgDim = s.bgDim
+    root.bgVignette = (s.bgVignette !== undefined) ? s.bgVignette : false
     root.settingsLoaded = true
     root.resetTest()
     if (!jsonText || jsonText === "{}" || jsonText.trim() === "") {
@@ -217,7 +241,17 @@ Item {
       language: root.language,
       punctuation: root.punctuation,
       numbers: root.numbers,
-      soundVolume: root.soundVolume
+      soundVolume: root.soundVolume,
+      bgImageEnabled: root.bgImageEnabled,
+      bgImagePath: root.bgImagePath,
+      bgBlur: root.bgBlur,
+      bgDither: root.bgDither,
+      bgDitherIntensity: root.bgDitherIntensity,
+      bgColorLevels: root.bgColorLevels,
+      bgCellSize: root.bgCellSize,
+      bgAdaptiveDim: root.bgAdaptiveDim,
+      bgDim: root.bgDim,
+      bgVignette: root.bgVignette
     }
     settingsFile.setText(SettingsModule.serializeSettings(data))
   }
@@ -384,6 +418,35 @@ Item {
     function ping(): string {
       return "ok"
     }
+
+    function setBackground(path: string): string {
+      root.bgImagePath = path
+      root.bgImageEnabled = true
+      root.saveSettings()
+      root.showToast("Background set")
+      return "ok"
+    }
+
+    function toggleBackground(): string {
+      root.bgImageEnabled = !root.bgImageEnabled
+      root.saveSettings()
+      root.showToast(root.bgImageEnabled ? "Background: On" : "Background: Off")
+      return root.bgImageEnabled ? "on" : "off"
+    }
+
+    function toggleDither(): string {
+      root.bgDither = !root.bgDither
+      root.saveSettings()
+      root.showToast(root.bgDither ? "Dither: On" : "Dither: Off")
+      return root.bgDither ? "on" : "off"
+    }
+
+    function toggleVignette(): string {
+      root.bgVignette = !root.bgVignette
+      root.saveSettings()
+      root.showToast(root.bgVignette ? "Vignette: On" : "Vignette: Off")
+      return root.bgVignette ? "on" : "off"
+    }
   }
 
   PanelWindow {
@@ -426,6 +489,22 @@ Item {
       color: Commons.Color.menu.background
       borderSpec: Border.surfaceSpec("menu", "border", Commons.Color.menu.border, 1)
       clip: true
+
+      DitheredBackground {
+        anchors.fill: parent
+        bgEnabled: root.bgImageEnabled
+        imagePath: root.bgImagePath
+        blurAmount: root.bgBlur
+        ditherEnabled: root.bgDither
+        ditherIntensity: root.bgDitherIntensity
+        colorLevels: root.bgColorLevels
+        cellSize: root.bgCellSize
+        adaptiveDim: root.bgAdaptiveDim
+        dimOpacity: root.bgDim
+        dimColor: Commons.Color.menu.background
+        radius: card.radius
+        vignetteEnabled: root.bgVignette
+      }
 
       opacity: root.opened ? 1.0 : 0.0
       scale: root.opened ? 1.0 : 0.96
@@ -473,6 +552,33 @@ Item {
           // F1 or Ctrl+M: Toggle Mode (Quote <-> Time)
           if (event.key === Qt.Key_F1 || (isCtrl && event.key === Qt.Key_M)) {
             root.toggleMode()
+            event.accepted = true
+            return
+          }
+
+          // Ctrl+B: Toggle Background Image
+          if (isCtrl && event.key === Qt.Key_B) {
+            root.bgImageEnabled = !root.bgImageEnabled
+            root.saveSettings()
+            root.showToast(root.bgImageEnabled ? "Background: On" : "Background: Off")
+            event.accepted = true
+            return
+          }
+
+          // Ctrl+D: Toggle Dithering Effect
+          if (isCtrl && event.key === Qt.Key_D) {
+            root.bgDither = !root.bgDither
+            root.saveSettings()
+            root.showToast(root.bgDither ? "Dither: On" : "Dither: Off")
+            event.accepted = true
+            return
+          }
+
+          // Ctrl+V: Toggle Perimeter Vignette Effect
+          if (isCtrl && event.key === Qt.Key_V) {
+            root.bgVignette = !root.bgVignette
+            root.saveSettings()
+            root.showToast(root.bgVignette ? "Vignette: On" : "Vignette: Off")
             event.accepted = true
             return
           }
@@ -899,6 +1005,7 @@ Item {
         height: 1
         color: Util.alpha(Commons.Color.menu.text, 0.08)
         opacity: header.opacity
+        visible: !(root.bgImageEnabled && root.bgImagePath !== "" && root.bgVignette)
         Behavior on opacity {
           NumberAnimation { duration: 240; easing.type: Easing.OutCubic }
         }
@@ -931,8 +1038,25 @@ Item {
             anchors.fill: parent
             visible: !root.stats.isFinished
 
+            // Frosted glass capsule (disabled in clean stealth wallpaper mode)
+            Rectangle {
+              id: typingCapsule
+              anchors.fill: centeredTypingBox
+              anchors.margins: -24
+              anchors.topMargin: -18
+              anchors.bottomMargin: -16
+              radius: 18
+              visible: false
+              color: Commons.Color.menu.background
+              opacity: 0.85
+              border.color: Commons.Color.menu.border
+              border.width: 1
+              z: 0
+            }
+
             Item {
               id: centeredTypingBox
+              z: 1
               anchors.centerIn: parent
               width: Math.min(960, parent.width)
               height: 310
@@ -1022,11 +1146,14 @@ Item {
                               font.pixelSize: 30
                               color: {
                                 root.sessionRevision
-                                if (!charBox.cData) return Util.alpha(Commons.Color.menu.text, 0.35)
-                                if (charBox.cData.state === "correct") return Commons.Color.menu.text
-                                if (charBox.cData.state === "incorrect") return "#e06c75"
-                                return Util.alpha(Commons.Color.menu.text, 0.35)
+                                if (!charBox.cData) return Util.alpha(Commons.Color.menu.text, 0.60)
+                                if (charBox.cData.state === "correct") return "#ffffff"
+                                if (charBox.cData.state === "incorrect") return "#ff5555"
+                                return Util.alpha(Commons.Color.menu.text, 0.60)
                               }
+                              // Fine dark outline keeps glyphs readable over bright dithered clouds
+                              style: Text.Outline
+                              styleColor: "#101216"
                             }
                           }
                         }
@@ -1047,6 +1174,9 @@ Item {
                             font.pixelSize: 30
                             font.bold: true
                             color: "#e06c75"
+                            // Fine dark outline keeps glyphs readable over bright dithered clouds
+                            style: Text.Outline
+                            styleColor: "#101216"
                           }
                         }
 
@@ -1083,17 +1213,33 @@ Item {
                   font.family: Style.font.family
                   font.pixelSize: 14
                   font.italic: true
-                  color: Util.alpha(Commons.Color.menu.text, 0.35)
+                  color: Util.alpha(Commons.Color.menu.text, 0.55)
                 }
               }
             }
           }
 
           // Test Finished Summary: MASSIVE 115px WPM
-          Column {
+          Item {
             anchors.centerIn: parent
-            spacing: 16
+            width: finishedColumn.width + 64
+            height: finishedColumn.height + 48
             visible: root.stats.isFinished
+
+            Rectangle {
+              anchors.fill: parent
+              radius: 18
+              visible: false
+              color: Commons.Color.menu.background
+              opacity: 0.85
+              border.color: Commons.Color.menu.border
+              border.width: 1
+            }
+
+            Column {
+              id: finishedColumn
+              anchors.centerIn: parent
+              spacing: 16
 
             Text {
               anchors.horizontalCenter: parent.horizontalCenter
@@ -1170,6 +1316,7 @@ Item {
               color: Util.alpha(Commons.Color.menu.text, 0.35)
             }
           }
+        }
         }
 
         // =================================== VIEW 2: STATS & GRAPH (Scaled 1.25x)
@@ -1461,7 +1608,7 @@ Item {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         height: 48
-        color: Util.alpha(Commons.Color.menu.text, 0.02)
+        color: (root.bgImageEnabled && root.bgImagePath !== "") ? "transparent" : Util.alpha(Commons.Color.menu.text, 0.02)
         opacity: (root.isTypingActive && !footerHover.containsMouse) ? 0.0 : 1.0
 
         Behavior on opacity {
@@ -1481,6 +1628,7 @@ Item {
           anchors.top: parent.top
           height: 1
           color: Util.alpha(Commons.Color.menu.text, 0.06)
+          visible: !(root.bgImageEnabled && root.bgImagePath !== "" && root.bgVignette)
         }
 
         // Left: Omarchy glyph + Branding + subtle shortcut hint
