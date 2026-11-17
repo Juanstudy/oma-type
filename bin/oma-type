@@ -31,6 +31,13 @@ App
   reset                  Reset the current typing test
   ping                   Ping the IPC target
 
+Background & Customization
+  bg [image-path]        Set background image (or toggle default wallpaper)
+  bg-toggle              Toggle background image on/off (Shortcut: Ctrl+B)
+  dither-toggle          Toggle Bayer dithering shader on/off (Shortcut: Ctrl+D)
+  vignette-toggle        Toggle perimeter vignette fade on/off (Shortcut: Ctrl+V)
+  config                 Print current configuration
+
 Setup
   install                Link plugin into omarchy-shell and install .desktop entry
   uninstall              Disable and unlink the plugin
@@ -115,6 +122,8 @@ cmd_reload() {
   local dev_link="$plugin_link.dev-$(date +%s%N)"
   ln -sfn "$repo" "$dev_link"
   echo "relinked $dev_link -> $repo"
+  omarchy-shell -q shell rescanPlugins 2>/dev/null || true
+  omarchy plugin enable "$PLUGIN_ID" 2>/dev/null || true
 }
 
 cmd_doctor() {
@@ -133,9 +142,72 @@ cmd_doctor() {
   return $bad
 }
 
+cmd_bg() {
+  local target_path="${1:-}"
+  local config_file="${XDG_CONFIG_HOME:-$HOME/.config}/oma-type/settings.json"
+  mkdir -p "$(dirname "$config_file")"
+
+  if [[ -n "$target_path" ]]; then
+    if [[ ! -f "$target_path" && ! -f "$repo/$target_path" ]]; then
+      die "image file not found: $target_path"
+    fi
+    [[ ! -f "$target_path" ]] && target_path="$repo/$target_path"
+    target_path=$(readlink -f "$target_path")
+
+    if omarchy-shell "$IPC_TARGET" ping >/dev/null 2>&1; then
+      omarchy-shell "$IPC_TARGET" setBackground "$target_path" >/dev/null 2>&1 || true
+    else
+      node -e '
+        const fs = require("fs");
+        const file = process.argv[1];
+        const img = process.argv[2];
+        let s = {};
+        try { s = JSON.parse(fs.readFileSync(file, "utf8")); } catch(e) {}
+        s.bgImageEnabled = true;
+        s.bgImagePath = img;
+        fs.writeFileSync(file, JSON.stringify(s, null, 2));
+      ' "$config_file" "$target_path"
+    fi
+    echo "Background set to: $target_path (enabled)"
+  else
+    local default_wall="$repo/assets/wallpapers/anime-sky.png"
+    if omarchy-shell "$IPC_TARGET" ping >/dev/null 2>&1; then
+      local cur_state
+      cur_state=$(omarchy-shell "$IPC_TARGET" toggleBackground 2>/dev/null || echo "toggled")
+      echo "Background image $cur_state"
+    else
+      node -e '
+        const fs = require("fs");
+        const file = process.argv[1];
+        const def = process.argv[2];
+        let s = {};
+        try { s = JSON.parse(fs.readFileSync(file, "utf8")); } catch(e) {}
+        if (!s.bgImagePath) s.bgImagePath = def;
+        s.bgImageEnabled = !s.bgImageEnabled;
+        fs.writeFileSync(file, JSON.stringify(s, null, 2));
+        console.log("Background image " + (s.bgImageEnabled ? "enabled (" + s.bgImagePath + ")" : "disabled"));
+      ' "$config_file" "$default_wall"
+    fi
+  fi
+}
+
+cmd_config() {
+  local config_file="${XDG_CONFIG_HOME:-$HOME/.config}/oma-type/settings.json"
+  if [[ -f "$config_file" ]]; then
+    cat "$config_file"
+  else
+    echo "No settings.json found yet at $config_file"
+  fi
+}
+
 case "${1:-}" in
   toggle|show|hide|reset) need_shell; ipc "$1" >/dev/null ;;
   ping) need_shell; ipc ping ;;
+  bg) shift; cmd_bg "${1:-}" ;;
+  bg-toggle) need_shell; ipc toggleBackground >/dev/null || cmd_bg ;;
+  dither-toggle) need_shell; ipc toggleDither >/dev/null ;;
+  vignette-toggle) need_shell; ipc toggleVignette >/dev/null ;;
+  config) cmd_config ;;
   install) cmd_install ;;
   uninstall) cmd_uninstall ;;
   reload) cmd_reload ;;
