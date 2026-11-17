@@ -708,7 +708,7 @@ Item {
           NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
         }
 
-        Text {
+        OutlinedText {
           id: toastText
           anchors.centerIn: parent
           text: root.toastMessage
@@ -751,7 +751,7 @@ Item {
           anchors.verticalCenter: parent.verticalCenter
           color: backMouse.containsMouse ? Util.alpha(Commons.Color.menu.text, 0.1) : "transparent"
 
-          Text {
+          OutlinedText {
             anchors.centerIn: parent
             text: "←"
             font.pixelSize: 18
@@ -793,7 +793,7 @@ Item {
               spacing: 8
 
               // Mode name
-              Text {
+              OutlinedText {
                 anchors.verticalCenter: parent.verticalCenter
                 text: root.mode === "time" ? "Time" : (root.mode === "words" ? "Words" : "Quote")
                 font.family: Style.font.family
@@ -803,7 +803,7 @@ Item {
               }
 
               // Divider dot
-              Text {
+              OutlinedText {
                 anchors.verticalCenter: parent.verticalCenter
                 text: "·"
                 font.family: Style.font.family
@@ -812,7 +812,7 @@ Item {
               }
 
               // Active option (15s / 25w / short)
-              Text {
+              OutlinedText {
                 anchors.verticalCenter: parent.verticalCenter
                 text: {
                   if (root.mode === "time") return root.duration + "s ▾"
@@ -835,7 +835,7 @@ Item {
                 border.color: root.language === "spanish" ? Util.alpha(Commons.Color.menu.selectedText, 0.4) : Util.alpha(Commons.Color.menu.text, 0.15)
                 border.width: 1
 
-                Text {
+                OutlinedText {
                   id: langLabel
                   anchors.centerIn: parent
                   text: root.language === "spanish" ? "ES" : "EN"
@@ -862,7 +862,7 @@ Item {
                 border.color: root.punctuation ? Util.alpha(Commons.Color.menu.selectedText, 0.4) : "transparent"
                 border.width: 1
 
-                Text {
+                OutlinedText {
                   id: puncLabel
                   anchors.centerIn: parent
                   text: "@ punc"
@@ -889,7 +889,7 @@ Item {
                 border.color: root.numbers ? Util.alpha(Commons.Color.menu.selectedText, 0.4) : "transparent"
                 border.width: 1
 
-                Text {
+                OutlinedText {
                   id: numLabel
                   anchors.centerIn: parent
                   text: "# 123"
@@ -935,7 +935,7 @@ Item {
             border.color: Util.alpha(Commons.Color.menu.text, 0.1)
             border.width: 1
 
-            Text {
+            OutlinedText {
               id: statsPillText
               anchors.centerIn: parent
               text: "Stats"
@@ -961,7 +961,7 @@ Item {
           anchors.verticalCenter: parent.verticalCenter
           spacing: 16
 
-          Text {
+          OutlinedText {
             anchors.verticalCenter: parent.verticalCenter
             text: root.soundTheme === "off" ? "sound: off" : root.soundTheme
             font.family: Style.font.family
@@ -977,7 +977,7 @@ Item {
           }
 
           // Live Timer / Stopwatch (Test View)
-          Text {
+          OutlinedText {
             visible: root.activeView === "test"
             anchors.verticalCenter: parent.verticalCenter
             text: root.mode === "time"
@@ -989,7 +989,7 @@ Item {
             color: (root.mode === "time" && root.stats.timeLeft <= 3) ? "#e06c75" : Commons.Color.menu.selectedText
           }
 
-          Text {
+          OutlinedText {
             visible: root.activeView === "test"
             anchors.verticalCenter: parent.verticalCenter
             text: root.stats.wpm + " wpm"
@@ -998,7 +998,7 @@ Item {
             color: Util.alpha(Commons.Color.menu.text, 0.4)
           }
 
-          Text {
+          OutlinedText {
             visible: root.activeView === "test"
             anchors.verticalCenter: parent.verticalCenter
             text: root.stats.accuracy + "%"
@@ -1152,7 +1152,7 @@ Item {
 
                             readonly property var cData: wData ? wData.chars[index] : null
 
-                            Text {
+                            OutlinedText {
                               id: charText
                               text: charBox.cData ? charBox.cData.char : ""
                               font.family: Style.font.family
@@ -1164,9 +1164,6 @@ Item {
                                 if (charBox.cData.state === "incorrect") return "#ff5555"
                                 return Util.alpha(Commons.Color.menu.text, 0.60)
                               }
-                              // Fine dark outline keeps glyphs readable over bright dithered clouds
-                              style: Text.Outline
-                              styleColor: "#101216"
                             }
                           }
                         }
@@ -1178,7 +1175,7 @@ Item {
                             return (wData && wData.extra) ? wData.extra.length : 0
                           }
 
-                          delegate: Text {
+                          delegate: OutlinedText {
                             text: {
                               root.sessionRevision
                               return (wData && wData.extra) ? wData.extra[index] : ""
@@ -1187,9 +1184,6 @@ Item {
                             font.pixelSize: 30
                             font.bold: true
                             color: "#e06c75"
-                            // Fine dark outline keeps glyphs readable over bright dithered clouds
-                            style: Text.Outline
-                            styleColor: "#101216"
                           }
                         }
 
@@ -1199,7 +1193,7 @@ Item {
                           width: spaceText.contentWidth
                           height: spaceText.contentHeight
 
-                          Text {
+                          OutlinedText {
                             id: spaceText
                             text: " "
                             font.family: Style.font.family
@@ -1221,7 +1215,7 @@ Item {
                 height: 26
                 visible: root.mode === "quote" && root.session && root.session.quote
 
-                Text {
+                OutlinedText {
                   text: root.session && root.session.quote ? "— " + root.session.quote.source : ""
                   font.family: Style.font.family
                   font.pixelSize: 14
@@ -1254,7 +1248,7 @@ Item {
               anchors.centerIn: parent
               spacing: 16
 
-            Text {
+            OutlinedText {
               anchors.horizontalCenter: parent.horizontalCenter
               text: root.stats.wpm
               font.family: Style.font.family
@@ -1263,7 +1257,7 @@ Item {
               color: Commons.Color.menu.selectedText
             }
 
-            Text {
+            OutlinedText {
               anchors.horizontalCenter: parent.horizontalCenter
               text: "WORDS PER MINUTE"
               font.family: Style.font.family
@@ -1272,7 +1266,7 @@ Item {
               color: Util.alpha(Commons.Color.menu.text, 0.4)
             }
 
-            Text {
+            OutlinedText {
               anchors.horizontalCenter: parent.horizontalCenter
               visible: root.mode === "quote" && root.stats.quote
               text: root.stats.quote ? "— " + root.stats.quote.source : ""
@@ -1287,31 +1281,31 @@ Item {
               spacing: 32
               anchors.topMargin: 12
 
-              Text {
+              OutlinedText {
                 text: root.stats.accuracy + "% accuracy"
                 font.family: Style.font.family
                 font.pixelSize: 18
                 color: Commons.Color.menu.text
               }
 
-              Text {
+              OutlinedText {
                 text: "·"
                 color: Util.alpha(Commons.Color.menu.text, 0.3)
               }
 
-              Text {
+              OutlinedText {
                 text: root.stats.elapsedSeconds + "s time"
                 font.family: Style.font.family
                 font.pixelSize: 18
                 color: Commons.Color.menu.text
               }
 
-              Text {
+              OutlinedText {
                 text: "·"
                 color: Util.alpha(Commons.Color.menu.text, 0.3)
               }
 
-              Text {
+              OutlinedText {
                 text: root.stats.rawWpm + " raw"
                 font.family: Style.font.family
                 font.pixelSize: 18
@@ -1321,7 +1315,7 @@ Item {
 
             Item { width: 1; height: 12 }
 
-            Text {
+            OutlinedText {
               anchors.horizontalCenter: parent.horizontalCenter
               text: "tab or enter to restart"
               font.family: Style.font.family
@@ -1354,14 +1348,14 @@ Item {
               Column {
                 width: parent.width / 4
                 spacing: 3
-                Text {
+                OutlinedText {
                   text: root.summary.bestWpm > 0 ? String(root.summary.bestWpm) : "—"
                   font.family: Style.font.family
                   font.pixelSize: 34
                   font.bold: true
                   color: Commons.Color.menu.selectedText
                 }
-                Text {
+                OutlinedText {
                   text: "best wpm"
                   font.family: Style.font.family
                   font.pixelSize: 12
@@ -1372,14 +1366,14 @@ Item {
               Column {
                 width: parent.width / 4
                 spacing: 3
-                Text {
+                OutlinedText {
                   text: root.summary.avgWpm > 0 ? String(root.summary.avgWpm) : "—"
                   font.family: Style.font.family
                   font.pixelSize: 34
                   font.bold: true
                   color: Commons.Color.menu.text
                 }
-                Text {
+                OutlinedText {
                   text: "avg wpm"
                   font.family: Style.font.family
                   font.pixelSize: 12
@@ -1390,14 +1384,14 @@ Item {
               Column {
                 width: parent.width / 4
                 spacing: 3
-                Text {
+                OutlinedText {
                   text: root.summary.avgAccuracy > 0 ? root.summary.avgAccuracy + "%" : "—"
                   font.family: Style.font.family
                   font.pixelSize: 34
                   font.bold: true
                   color: Commons.Color.menu.text
                 }
-                Text {
+                OutlinedText {
                   text: "accuracy"
                   font.family: Style.font.family
                   font.pixelSize: 12
@@ -1408,14 +1402,14 @@ Item {
               Column {
                 width: parent.width / 4
                 spacing: 3
-                Text {
+                OutlinedText {
                   text: String(root.summary.totalTests)
                   font.family: Style.font.family
                   font.pixelSize: 34
                   font.bold: true
                   color: Commons.Color.menu.text
                 }
-                Text {
+                OutlinedText {
                   text: "tests completed"
                   font.family: Style.font.family
                   font.pixelSize: 12
@@ -1429,7 +1423,7 @@ Item {
               width: parent.width
               height: 175
 
-              Text {
+              OutlinedText {
                 anchors.centerIn: parent
                 visible: root.history.length < 2
                 text: root.history.length === 0 ? "no test data yet" : "complete 1 more test to draw curve"
@@ -1541,7 +1535,7 @@ Item {
               width: parent.width
               spacing: 8
 
-              Text {
+              OutlinedText {
                 text: "recent"
                 font.family: Style.font.family
                 font.pixelSize: 11
@@ -1562,7 +1556,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 20
 
-                    Text {
+                    OutlinedText {
                       text: hItem.mode || "time"
                       font.family: Style.font.family
                       font.pixelSize: 13
@@ -1570,7 +1564,7 @@ Item {
                       width: 46
                     }
 
-                    Text {
+                    OutlinedText {
                       text: hItem.wpm + " wpm"
                       font.family: Style.font.family
                       font.pixelSize: 13
@@ -1579,7 +1573,7 @@ Item {
                       width: 64
                     }
 
-                    Text {
+                    OutlinedText {
                       text: hItem.accuracy + "%"
                       font.family: Style.font.family
                       font.pixelSize: 13
@@ -1587,7 +1581,7 @@ Item {
                       width: 44
                     }
 
-                    Text {
+                    OutlinedText {
                       visible: hItem.quoteSource && hItem.quoteSource.length > 0
                       text: hItem.quoteSource
                       font.family: Style.font.family
@@ -1599,7 +1593,7 @@ Item {
                     }
                   }
 
-                  Text {
+                  OutlinedText {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     text: hItem.elapsedSeconds + "s"
@@ -1651,7 +1645,7 @@ Item {
           anchors.verticalCenter: parent.verticalCenter
           spacing: 12
 
-          Text {
+          OutlinedText {
             anchors.verticalCenter: parent.verticalCenter
             text: ""
             font.family: "omarchy"
@@ -1659,7 +1653,7 @@ Item {
             color: Commons.Color.menu.selectedText
           }
 
-          Text {
+          OutlinedText {
             anchors.verticalCenter: parent.verticalCenter
             text: "Typing Practice"
             font.family: Style.font.family
@@ -1674,7 +1668,7 @@ Item {
             color: Util.alpha(Commons.Color.menu.text, 0.1)
           }
 
-          Text {
+          OutlinedText {
             anchors.verticalCenter: parent.verticalCenter
             text: "F1 mode · F2 option · F3 sound · F4 stats · ^I lang"
             font.family: Style.font.family
@@ -1695,7 +1689,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             spacing: 6
 
-            Text {
+            OutlinedText {
               anchors.verticalCenter: parent.verticalCenter
               text: "Restart"
               font.family: Style.font.family
@@ -1711,7 +1705,7 @@ Item {
               border.color: Util.alpha(Commons.Color.menu.text, 0.15)
               border.width: 1
 
-              Text {
+              OutlinedText {
                 anchors.centerIn: parent
                 text: "Tab"
                 font.family: Style.font.family
@@ -1734,7 +1728,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             spacing: 6
 
-            Text {
+            OutlinedText {
               anchors.verticalCenter: parent.verticalCenter
               text: "Close"
               font.family: Style.font.family
@@ -1750,7 +1744,7 @@ Item {
               border.color: Util.alpha(Commons.Color.menu.text, 0.15)
               border.width: 1
 
-              Text {
+              OutlinedText {
                 anchors.centerIn: parent
                 text: "Esc"
                 font.family: Style.font.family
