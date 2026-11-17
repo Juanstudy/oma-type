@@ -38,4 +38,5 @@ day-to-day typing, without touching the shipped dithered-background feature.
 * [x] T1 dead-key filter (RED observed: 1 failing module test, GREEN 26/26) — commit 69fb7e2
 * [x] T2 sound dir relative resolution (symlink path check: 5 packs listed) — commit 44afade
 * [x] T3 duplicate data files removed (grep zero refs pre-delete; 26/26) — commit 3546ffb
-* [ ] PR opened (pending)
+* [x] PR opened: https://github.com/Juanstudy/oma-type/pull/3
+* [x] Audit follow-up: design/ mockups moved (untracked) to ../oma-type-web/design per user request; oma-type working tree fully clean.
