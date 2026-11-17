@@ -46,6 +46,7 @@ Item {
   property double bgDim: 0.4
   property bool bgVignette: false
   property bool settingsLoaded: false
+  property string pendingAccent: ""
   // Resolve relative to this QML file (repo root) so the plugin works through
   // the omarchy plugins symlink without a hardcoded home path. Must stay a raw
   // filesystem path: the consumer is pw-play, not an Audio element.
@@ -686,14 +687,29 @@ Item {
           // Ignore any other Ctrl combination so it doesn't feed stray control chars
           if (isCtrl) return
 
-          // Dead keys (´ ` ¨ ^ ~) compose into the NEXT key event, which carries
-          // the final accented character; typing them literally corrupts stats.
-          if (KeysModule.isDeadKey(event.key)) return
+          // Dead keys (´ ` ¨ ^ ~) do not compose in this environment (no
+          // input method on the Wayland layer): stash the accent and compose
+          // it ourselves with the next printable character.
+          if (KeysModule.isDeadKey(event.key)) {
+            root.pendingAccent = KeysModule.deadAccent(event.key) || ""
+            return
+          }
 
           var keyStr = ""
-          if (event.key === Qt.Key_Backspace) keyStr = "Backspace"
-          else if (event.key === Qt.Key_Space) keyStr = " "
-          else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32) keyStr = event.text
+          if (event.key === Qt.Key_Backspace) {
+            root.pendingAccent = ""
+            keyStr = "Backspace"
+          } else if (event.key === Qt.Key_Space) {
+            root.pendingAccent = ""
+            keyStr = " "
+          } else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32) {
+            keyStr = event.text
+            if (root.pendingAccent !== "") {
+              var composed = KeysModule.composeAccent(root.pendingAccent, event.text)
+              if (composed) keyStr = composed
+              root.pendingAccent = ""
+            }
+          }
 
           if (keyStr) {
             root.playKeySound()
