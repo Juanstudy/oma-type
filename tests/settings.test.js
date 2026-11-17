@@ -13,6 +13,16 @@ test("Settings: getDefaultSettings returns safe default values", () => {
   assert.equal(defaults.punctuation, false);
   assert.equal(defaults.numbers, false);
   assert.equal(defaults.soundVolume, 0.55);
+  assert.equal(defaults.bgImageEnabled, false);
+  assert.equal(defaults.bgImagePath, "");
+  assert.equal(defaults.bgBlur, 0.04);
+  assert.equal(defaults.bgDither, true);
+  assert.equal(defaults.bgDitherIntensity, 1);
+  assert.equal(defaults.bgColorLevels, 2);
+  assert.equal(defaults.bgCellSize, 2);
+  assert.equal(defaults.bgAdaptiveDim, 0.65);
+  assert.equal(defaults.bgDim, 0.4);
+  assert.equal(defaults.bgVignette, false);
 });
 
 test("Settings: parseSettings handles empty or corrupted JSON gracefully", () => {
@@ -69,6 +79,30 @@ test("Settings: parseSettings validates and sanitizes input properties", () => {
 
   const invalidLang = Settings.parseSettings(JSON.stringify({ language: "klingon" }));
   assert.equal(invalidLang.language, "english");
+
+  // Background customization settings (dithering, blur, image)
+  const bgCustom = Settings.parseSettings(JSON.stringify({
+    bgImageEnabled: true,
+    bgImagePath: "/home/user/wallpaper.jpg",
+    bgBlur: 0.4,
+    bgDither: false,
+    bgDitherIntensity: 0.8,
+    bgColorLevels: 8,
+    bgCellSize: 4,
+    bgAdaptiveDim: 0.9,
+    bgDim: 0.75,
+    bgVignette: false
+  }));
+  assert.equal(bgCustom.bgImageEnabled, true);
+  assert.equal(bgCustom.bgImagePath, "/home/user/wallpaper.jpg");
+  assert.equal(bgCustom.bgBlur, 0.4);
+  assert.equal(bgCustom.bgDither, false);
+  assert.equal(bgCustom.bgDitherIntensity, 0.8);
+  assert.equal(bgCustom.bgColorLevels, 8);
+  assert.equal(bgCustom.bgCellSize, 4);
+  assert.equal(bgCustom.bgAdaptiveDim, 0.9);
+  assert.equal(bgCustom.bgDim, 0.75);
+  assert.equal(bgCustom.bgVignette, false);
 
   // Invalid values should fallback to defaults
   const invalid = Settings.parseSettings(JSON.stringify({
