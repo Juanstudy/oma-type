@@ -46,7 +46,15 @@ Item {
   property double bgDim: 0.4
   property bool bgVignette: false
   property bool settingsLoaded: false
-  property string soundBaseDir: Quickshell.env("HOME") + "/Projects/oma-type/assets/sounds"
+  // Resolve relative to this QML file (repo root) so the plugin works through
+  // the omarchy plugins symlink without a hardcoded home path. Must stay a raw
+  // filesystem path: the consumer is pw-play, not an Audio element.
+  property string soundBaseDir: {
+    var override = Quickshell.env("OMA_TYPE_SOUNDS_DIR")
+    if (override && override.trim() !== "") return override.trim()
+    var url = Qt.resolvedUrl("assets/sounds").toString()
+    return url.indexOf("file://") === 0 ? decodeURIComponent(url.substring(7)) : url
+  }
   property double lastSoundTime: 0
 
   property var history: []
