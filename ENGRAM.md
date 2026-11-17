@@ -29,8 +29,8 @@
 │   └── oma-type             # Shell CLI (install, reload, doctor, toggle, show, hide)
 ├── core/
 │   ├── Words.js             # 1,000 common English words (Monkeytype english_1k) + Fisher-Yates
+│   ├── Keys.js              # Key classification helpers (dead-key detection for Spanish input)
 │   ├── Quotes.js            # 500 curated quotes (250 short, 250 medium) with authors
-│   ├── quotes.json          # Raw quotes database (105 KB)
 │   ├── Engine.js            # Deterministic state machine (time mode, quote mode, WPM math)
 │   └── History.js           # Analytics aggregator (best/avg WPM, accuracy, trend coordinates)
 ├── tests/
