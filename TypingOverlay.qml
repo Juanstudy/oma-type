@@ -47,6 +47,7 @@ Item {
   property bool bgVignette: false
   property bool settingsLoaded: false
   property string pendingAccent: ""
+  property bool focusPrimed: false
   // Resolve relative to this QML file (repo root) so the plugin works through
   // the omarchy plugins symlink without a hardcoded home path. Must stay a raw
   // filesystem path: the consumer is pw-play, not an Audio element.
@@ -64,12 +65,16 @@ Item {
 
   function open() {
     root.opened = true
+    root.focusPrimed = false
+    focusPrimeTimer.restart()
     root.activeView = "test"
     root.resetTest()
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
   }
 
   function close() {
+    focusPrimeTimer.stop()
+    root.focusPrimed = false
     root.opened = false
   }
 
@@ -461,6 +466,12 @@ Item {
     }
   }
 
+  Timer {
+    id: focusPrimeTimer
+    interval: 75
+    onTriggered: if (root.opened) root.focusPrimed = true
+  }
+
   PanelWindow {
     id: panel
     visible: root.opened
@@ -468,11 +479,20 @@ Item {
     color: "transparent"
     WlrLayershell.namespace: "oma-type"
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: root.opened ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: root.opened
+      ? (root.focusPrimed ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive)
+      : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
 
     onVisibleChanged: {
-      if (visible) Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+      if (visible) {
+        root.focusPrimed = false
+        focusPrimeTimer.restart()
+        Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+      } else {
+        focusPrimeTimer.stop()
+        root.focusPrimed = false
+      }
     }
 
     // Scrim backdrop with smooth fade-in
@@ -528,20 +548,47 @@ Item {
         NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
       }
 
+      focus: true
+      Keys.forwardTo: [keyCatcher]
+      Keys.onEscapePressed: function(event) {
+        root.pendingAccent = ""
+        if (root.activeView === "settings" || root.activeView === "stats") {
+          root.activeView = "test"
+        } else {
+          root.close()
+        }
+        event.accepted = true
+      }
+
       MouseArea {
         anchors.fill: parent
+        z: -1
         onClicked: keyCatcher.forceActiveFocus()
       }
 
       TextInput {
         id: keyCatcher
-        anchors.fill: parent
+        x: 0
+        y: 0
+        width: 1
+        height: 1
+        opacity: 0
         focus: true
         clip: true
         color: "transparent"
         cursorVisible: false
         cursorDelegate: Item {}
         selectByMouse: false
+
+        onActiveFocusChanged: {
+          if (!activeFocus && root.opened && root.activeView !== "settings") {
+            Qt.callLater(function() {
+              if (root.opened && root.activeView !== "settings") {
+                keyCatcher.forceActiveFocus()
+              }
+            })
+          }
+        }
 
         // Receive composed characters from Input Methods (e.g. fcitx5 dead keys: ´ + o -> ó, ñ, ü)
         onTextEdited: {
@@ -830,7 +877,7 @@ Item {
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: {
-              if (root.activeView === "stats") root.activeView = "test"
+              if (root.activeView === "stats" || root.activeView === "settings") root.activeView = "test"
               else root.close()
             }
           }
@@ -1071,6 +1118,40 @@ Item {
             font.family: Style.font.family
             font.pixelSize: 13
             color: Util.alpha(Commons.Color.menu.text, 0.4)
+          }
+
+          Rectangle {
+            width: 1
+            height: 14
+            anchors.verticalCenter: parent.verticalCenter
+            color: Util.alpha(Commons.Color.menu.text, 0.12)
+          }
+
+          // Close button (✕)
+          Rectangle {
+            id: closeBtn
+            width: 28
+            height: 28
+            radius: 6
+            anchors.verticalCenter: parent.verticalCenter
+            color: closeMouse.containsMouse ? Util.alpha(Commons.Color.menu.text, 0.1) : "transparent"
+
+            OutlinedText {
+              anchors.centerIn: parent
+              text: "✕"
+              font.family: Style.font.family
+              font.pixelSize: 13
+              font.bold: true
+              color: closeMouse.containsMouse ? Commons.Color.menu.selectedText : Util.alpha(Commons.Color.menu.text, 0.5)
+            }
+
+            MouseArea {
+              id: closeMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.close()
+            }
           }
         }
       }
@@ -1830,33 +1911,51 @@ Item {
           spacing: 14
 
           // Restart Hint
-          Row {
+          Item {
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 6
+            width: restartHintRow.width
+            height: 26
 
-            OutlinedText {
+            Row {
+              id: restartHintRow
               anchors.verticalCenter: parent.verticalCenter
-              text: "Restart"
-              font.family: Style.font.family
-              font.pixelSize: 12
-              color: Util.alpha(Commons.Color.menu.text, 0.5)
-            }
-
-            Rectangle {
-              width: 36
-              height: 22
-              radius: 5
-              color: Util.alpha(Commons.Color.menu.text, 0.08)
-              border.color: Util.alpha(Commons.Color.menu.text, 0.15)
-              border.width: 1
+              spacing: 6
 
               OutlinedText {
-                anchors.centerIn: parent
-                text: "Tab"
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Restart"
                 font.family: Style.font.family
-                font.pixelSize: 11
-                font.bold: true
-                color: Commons.Color.menu.text
+                font.pixelSize: 12
+                color: restartMouse.containsMouse ? Commons.Color.menu.selectedText : Util.alpha(Commons.Color.menu.text, 0.5)
+              }
+
+              Rectangle {
+                width: 36
+                height: 22
+                radius: 5
+                color: restartMouse.containsMouse ? Util.alpha(Commons.Color.menu.text, 0.15) : Util.alpha(Commons.Color.menu.text, 0.08)
+                border.color: Util.alpha(Commons.Color.menu.text, 0.15)
+                border.width: 1
+
+                OutlinedText {
+                  anchors.centerIn: parent
+                  text: "Tab"
+                  font.family: Style.font.family
+                  font.pixelSize: 11
+                  font.bold: true
+                  color: Commons.Color.menu.text
+                }
+              }
+            }
+
+            MouseArea {
+              id: restartMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                root.resetTest()
+                Qt.callLater(function() { keyCatcher.forceActiveFocus() })
               }
             }
           }
@@ -1869,34 +1968,49 @@ Item {
           }
 
           // Close Hint
-          Row {
+          Item {
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 6
+            width: closeHintRow.width
+            height: 26
 
-            OutlinedText {
+            Row {
+              id: closeHintRow
               anchors.verticalCenter: parent.verticalCenter
-              text: "Close"
-              font.family: Style.font.family
-              font.pixelSize: 12
-              color: Util.alpha(Commons.Color.menu.text, 0.5)
-            }
-
-            Rectangle {
-              width: 36
-              height: 22
-              radius: 5
-              color: Util.alpha(Commons.Color.menu.text, 0.08)
-              border.color: Util.alpha(Commons.Color.menu.text, 0.15)
-              border.width: 1
+              spacing: 6
 
               OutlinedText {
-                anchors.centerIn: parent
-                text: "Esc"
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Close"
                 font.family: Style.font.family
-                font.pixelSize: 11
-                font.bold: true
-                color: Commons.Color.menu.text
+                font.pixelSize: 12
+                color: closeFooterMouse.containsMouse ? Commons.Color.menu.selectedText : Util.alpha(Commons.Color.menu.text, 0.5)
               }
+
+              Rectangle {
+                width: 36
+                height: 22
+                radius: 5
+                color: closeFooterMouse.containsMouse ? Util.alpha(Commons.Color.menu.text, 0.15) : Util.alpha(Commons.Color.menu.text, 0.08)
+                border.color: Util.alpha(Commons.Color.menu.text, 0.15)
+                border.width: 1
+
+                OutlinedText {
+                  anchors.centerIn: parent
+                  text: "Esc"
+                  font.family: Style.font.family
+                  font.pixelSize: 11
+                  font.bold: true
+                  color: Commons.Color.menu.text
+                }
+              }
+            }
+
+            MouseArea {
+              id: closeFooterMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.close()
             }
           }
         }

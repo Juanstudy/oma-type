@@ -101,6 +101,17 @@
   * Hero WPM: 115 px font size.
   * Stats metrics: 34 px font size, 180 px canvas height.
 
+### Observation 53: Focus Traps, Dead-Keys & Layer-Shell Dismissal Post-Mortem
+* **Incident:** Overlay appeared "frozen" on re-opening or after workspace switching — keys were ignored, `Escape` did not dismiss, and only switching workspaces in Hyprland was possible.
+* **Root Cause 1 (Hyprland Layer-Shell OnDemand Trap):** Hyprland focuses `OnDemand` layer surfaces when they first map, but *not* when an already-mapped surface (`keepLoaded: true`) toggles from `None` back to `OnDemand`. Without an initial prime, Hyprland fails to route keyboard events to the layer, leaving `Escape` and typing dead on arrival.
+* **Root Cause 2 (Single-Point Focus Failure):** `Escape` and typing were caught solely inside `keyCatcher.Keys.onPressed`. If `keyCatcher` lost `activeFocus`, `Escape` was completely unhandled.
+* **Root Cause 3 (Mouse Area Occlusion & Zero Click Dismissal):** Having `keyCatcher` as `TextInput` with `anchors.fill: parent` caused it to consume mouse presses across the 1080×640 card, blocking the card's focus restoration `MouseArea`. Furthermore, the card lacked any close button ("✕") and the footer "Close [Esc]" chip had no `MouseArea`.
+* **Resolutions:**
+  1. **Focus Priming:** Implemented the Omarchy `KeyboardPanel` pattern — on open, set `WlrKeyboardFocus.Exclusive` for 75ms before settling into `OnDemand`. This forces Hyprland to bind keyboard focus to the surface on every summon.
+  2. **Non-Blocking Key Catcher:** Reduced `keyCatcher` (`TextInput` for IME / dead-key accents) to 1×1 invisible geometry with auto-focus recovery (`onActiveFocusChanged`).
+  3. **Multi-Layer Escape Fallback:** Added `Keys.forwardTo: [keyCatcher]` and `Keys.onEscapePressed` directly on `card`.
+  4. **Tri-Fold Click Dismissal:** Added a dedicated "✕" close button in the header, made the footer "Close [Esc]" and "Restart [Tab]" chips clickable, and made clicks on the card background restore active focus to `keyCatcher`.
+
 ---
 
 ## 4. Key Formulas & Math
