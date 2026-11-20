@@ -1,0 +1,140 @@
+#!/usr/bin/env node
+// bin/extract-accent - Extract and cache adaptive accent color from wallpaper
+
+const fs = require("fs");
+const path = require("path");
+const cp = require("child_process");
+const Palette = require("../core/Palette.js");
+
+function resolveImagePath(rawPath) {
+  if (!rawPath || typeof rawPath !== "string" || rawPath.trim() === "") {
+    const home = process.env.HOME || "";
+    return path.join(home, ".local/state/omarchy/current/background");
+  }
+  let p = rawPath.trim();
+  if (p.startsWith("file://")) p = decodeURIComponent(p.substring(7));
+  if (p.startsWith("~/")) {
+    p = path.join(process.env.HOME || "", p.substring(2));
+  }
+  return path.resolve(p);
+}
+
+function getCachePath() {
+  const home = process.env.HOME || "";
+  const cacheDir = path.join(home, ".local/share/oma-type");
+  if (!fs.existsSync(cacheDir)) {
+    try {
+      fs.mkdirSync(cacheDir, { recursive: true });
+    } catch (_) {}
+  }
+  return path.join(cacheDir, "palettes.json");
+}
+
+function loadCache(cachePath) {
+  try {
+    if (fs.existsSync(cachePath)) {
+      const data = fs.readFileSync(cachePath, "utf8");
+      return JSON.parse(data) || {};
+    }
+  } catch (_) {}
+  return {};
+}
+
+function saveCache(cachePath, cache) {
+  try {
+    fs.writeFileSync(cachePath, JSON.stringify(cache, null, 2), "utf8");
+  } catch (_) {}
+}
+
+function extractViaAether(imgPath) {
+  const aetherPath = "/usr/bin/aether";
+  if (!fs.existsSync(aetherPath)) return null;
+
+  try {
+    const stdout = cp.execFileSync(aetherPath, ["--extract-palette", imgPath, "--json"], {
+      encoding: "utf8",
+      timeout: 4000,
+      stdio: ["pipe", "pipe", "ignore"]
+    });
+    const parsed = JSON.parse(stdout);
+    if (parsed && Array.isArray(parsed.colors) && parsed.colors.length > 0) {
+      return parsed.colors;
+    }
+  } catch (_) {}
+  return null;
+}
+
+function extractViaMagick(imgPath) {
+  try {
+    const stdout = cp.execFileSync("magick", [
+      imgPath,
+      "-resize", "64x64",
+      "-colors", "16",
+      "-format", "%c\n",
+      "histogram:info:"
+    ], {
+      encoding: "utf8",
+      timeout: 4000,
+      stdio: ["pipe", "pipe", "ignore"]
+    });
+
+    const matches = stdout.match(/#[0-9a-fA-F]{6}/g);
+    if (matches && matches.length > 0) {
+      return matches;
+    }
+  } catch (_) {}
+  return null;
+}
+
+function main() {
+  const targetImage = resolveImagePath(process.argv[2]);
+
+  if (!fs.existsSync(targetImage)) {
+    process.exit(1);
+  }
+
+  let stat;
+  try {
+    stat = fs.statSync(targetImage);
+  } catch (_) {
+    process.exit(1);
+  }
+
+  const cachePath = getCachePath();
+  const cache = loadCache(cachePath);
+  const cacheKey = targetImage;
+
+  // Check cache hit
+  if (cache[cacheKey] && cache[cacheKey].mtime === stat.mtimeMs && cache[cacheKey].accent) {
+    process.stdout.write(cache[cacheKey].accent + "\n");
+    process.exit(0);
+  }
+
+  // Extract palette: Aether first, Magick fallback
+  let colors = extractViaAether(targetImage);
+  if (!colors || colors.length === 0) {
+    colors = extractViaMagick(targetImage);
+  }
+
+  if (!colors || colors.length === 0) {
+    process.exit(1);
+  }
+
+  const accent = Palette.pickAccent(colors);
+  if (!accent) {
+    process.exit(1);
+  }
+
+  // Update cache
+  cache[cacheKey] = {
+    accent: accent,
+    mtime: stat.mtimeMs,
+    updated: Date.now()
+  };
+  saveCache(cachePath, cache);
+
+  process.stdout.write(accent + "\n");
+  process.exit(0);
+}
+
+main();

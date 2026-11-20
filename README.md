@@ -96,3 +96,7 @@ Settings are automatically saved on every change to `~/.config/oma-type/settings
 * `punctuation`: `true` | `false`
 * `numbers`: `true` | `false`
 * `soundVolume`: `0.0` to `1.0` (PipeWire switch playback volume)
+* `bgImageEnabled`: `true` | `false` (Translucent dithered wallpaper overlay)
+* `bgImagePath`: Path to background image (empty = system wallpaper link)
+* `bgAdaptiveAccent`: `true` | `false` (Auto-harmonizes UI accents with active wallpaper palette)
+* `bgDither`: `true` | `false` (Bayer 8x8 hardware shader dithering)

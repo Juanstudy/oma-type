@@ -33,6 +33,8 @@ BorderSurface {
   property double bgDim: 0.4
   property double bgAdaptiveDim: 0.65
   property bool bgVignette: false
+  property bool bgAdaptiveAccent: true
+  property color themeAccent: Commons.Color.menu.selectedText
 
   // Live value updates (fired continuously while a slider drags)
   signal settingsChanged(string key, var value)
@@ -88,7 +90,7 @@ BorderSurface {
       font.family: Style.font.family
       font.pixelSize: 16
       font.bold: true
-      color: Commons.Color.menu.selectedText
+      color: panel.themeAccent
     }
 
     Rectangle {
@@ -267,7 +269,7 @@ BorderSurface {
           height: 34
           radius: 6
           color: pathInput.activeFocus ? Util.alpha(Commons.Color.menu.text, 0.08) : Util.alpha(Commons.Color.menu.text, 0.04)
-          border.color: pathInput.activeFocus ? Util.alpha(Commons.Color.menu.selectedText, 0.5) : Util.alpha(Commons.Color.menu.text, 0.15)
+          border.color: pathInput.activeFocus ? Util.alpha(panel.themeAccent, 0.5) : Util.alpha(Commons.Color.menu.text, 0.15)
           border.width: 1
 
           TextInput {
@@ -283,7 +285,7 @@ BorderSurface {
             font.pixelSize: 11
             clip: true
             cursorVisible: activeFocus
-            selectionColor: Util.alpha(Commons.Color.menu.selectedText, 0.4)
+            selectionColor: Util.alpha(panel.themeAccent, 0.4)
 
             Text {
               anchors.left: parent.left
@@ -366,6 +368,12 @@ BorderSurface {
         checked: panel.bgVignette
         onToggled: function(checked) { panel.settingsChanged("bgVignette", checked); panel.commit() }
       }
+
+      ToggleRow {
+        label: "Adaptive accent"
+        checked: panel.bgAdaptiveAccent
+        onToggled: function(checked) { panel.settingsChanged("bgAdaptiveAccent", checked); panel.commit() }
+      }
     }
   }
 
@@ -408,7 +416,7 @@ BorderSurface {
           color: isSelected
             ? Commons.Color.menu.selectedBackground
             : (segMouse.containsMouse ? Util.alpha(Commons.Color.menu.text, 0.08) : Util.alpha(Commons.Color.menu.text, 0.04))
-          border.color: isSelected ? Util.alpha(Commons.Color.menu.selectedText, 0.5) : Util.alpha(Commons.Color.menu.text, 0.12)
+          border.color: isSelected ? Util.alpha(panel.themeAccent, 0.5) : Util.alpha(Commons.Color.menu.text, 0.12)
           border.width: 1
 
           OutlinedText {
@@ -418,7 +426,7 @@ BorderSurface {
             font.family: Style.font.family
             font.pixelSize: 11
             font.bold: segChip.isSelected
-            color: segChip.isSelected ? Commons.Color.menu.selectedText : Util.alpha(Commons.Color.menu.text, 0.55)
+            color: segChip.isSelected ? panel.themeAccent : Util.alpha(Commons.Color.menu.text, 0.55)
           }
 
           MouseArea {
@@ -459,8 +467,8 @@ BorderSurface {
       width: 34
       height: 18
       radius: 9
-      color: toggleRow.checked ? Util.alpha(Commons.Color.menu.selectedText, 0.35) : Util.alpha(Commons.Color.menu.text, 0.1)
-      border.color: toggleRow.checked ? Util.alpha(Commons.Color.menu.selectedText, 0.6) : Util.alpha(Commons.Color.menu.text, 0.2)
+      color: toggleRow.checked ? Util.alpha(panel.themeAccent, 0.35) : Util.alpha(Commons.Color.menu.text, 0.1)
+      border.color: toggleRow.checked ? Util.alpha(panel.themeAccent, 0.6) : Util.alpha(Commons.Color.menu.text, 0.2)
       border.width: 1
 
       Rectangle {
@@ -469,7 +477,7 @@ BorderSurface {
         radius: 6
         anchors.verticalCenter: parent.verticalCenter
         x: toggleRow.checked ? parent.width - width - 3 : 3
-        color: toggleRow.checked ? Commons.Color.menu.selectedText : Util.alpha(Commons.Color.menu.text, 0.5)
+        color: toggleRow.checked ? panel.themeAccent : Util.alpha(Commons.Color.menu.text, 0.5)
 
         Behavior on x {
           NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
@@ -516,7 +524,7 @@ BorderSurface {
       font.family: Style.font.family
       font.pixelSize: 11
       font.bold: true
-      color: Commons.Color.menu.selectedText
+      color: panel.themeAccent
     }
 
     Item {
@@ -541,7 +549,7 @@ BorderSurface {
         anchors.left: track.left
         height: track.height
         radius: track.radius
-        color: Commons.Color.menu.selectedText
+        color: panel.themeAccent
         width: track.width * sliderRow.frac
       }
 
@@ -551,7 +559,7 @@ BorderSurface {
         radius: 7
         anchors.verticalCenter: track.verticalCenter
         x: (track.width - width) * sliderRow.frac
-        color: Commons.Color.menu.selectedText
+        color: panel.themeAccent
         border.color: Commons.Color.menu.background
         border.width: 2
       }
@@ -647,7 +655,7 @@ BorderSurface {
           font.family: Style.font.family
           font.pixelSize: 12
           font.bold: true
-          color: Commons.Color.menu.selectedText
+          color: panel.themeAccent
         }
       }
 

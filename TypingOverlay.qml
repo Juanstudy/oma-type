@@ -45,6 +45,14 @@ Item {
 
   property double bgDim: 0.4
   property bool bgVignette: false
+  property bool bgAdaptiveAccent: true
+  property string wallpaperAccentColor: ""
+  readonly property color themeAccent: {
+    if (root.bgImageEnabled && root.bgAdaptiveAccent && root.wallpaperAccentColor !== "") {
+      return root.wallpaperAccentColor
+    }
+    return Commons.Color.menu.selectedText
+  }
   property bool settingsLoaded: false
   property string pendingAccent: ""
   property bool focusPrimed: false
@@ -55,6 +63,12 @@ Item {
     var override = Quickshell.env("OMA_TYPE_SOUNDS_DIR")
     if (override && override.trim() !== "") return override.trim()
     var url = Qt.resolvedUrl("assets/sounds").toString()
+    return url.indexOf("file://") === 0 ? decodeURIComponent(url.substring(7)) : url
+  }
+  property string extractAccentScript: {
+    var override = Quickshell.env("OMA_TYPE_EXTRACT_ACCENT")
+    if (override && override.trim() !== "") return override.trim()
+    var url = Qt.resolvedUrl("bin/extract-accent").toString()
     return url.indexOf("file://") === 0 ? decodeURIComponent(url.substring(7)) : url
   }
   property double lastSoundTime: 0
@@ -237,8 +251,10 @@ Item {
     root.bgAdaptiveDim = s.bgAdaptiveDim
     root.bgDim = s.bgDim
     root.bgVignette = (s.bgVignette !== undefined) ? s.bgVignette : false
+    root.bgAdaptiveAccent = (s.bgAdaptiveAccent !== undefined) ? s.bgAdaptiveAccent : true
     root.settingsLoaded = true
     root.resetTest()
+    root.updateWallpaperAccent()
     if (!jsonText || jsonText === "{}" || jsonText.trim() === "") {
       root.saveSettings()
     }
@@ -265,7 +281,8 @@ Item {
       bgCellSize: root.bgCellSize,
       bgAdaptiveDim: root.bgAdaptiveDim,
       bgDim: root.bgDim,
-      bgVignette: root.bgVignette
+      bgVignette: root.bgVignette,
+      bgAdaptiveAccent: root.bgAdaptiveAccent
     }
     settingsFile.setText(SettingsModule.serializeSettings(data))
   }
@@ -393,6 +410,41 @@ Item {
     onLoadFailed: function(err) { root.loadHistory("[]") }
   }
 
+  Process {
+    id: paletteProcess
+    command: []
+    stdout: StdioCollector {
+      id: paletteOut
+      waitForEnd: true
+      onStreamFinished: {
+        var col = String(paletteOut.text || "").trim()
+        if (col && /^#[0-9a-fA-F]{6}$/.test(col)) {
+          root.wallpaperAccentColor = col
+        }
+      }
+    }
+  }
+
+  function updateWallpaperAccent() {
+    if (!root.bgImageEnabled || !root.bgAdaptiveAccent) {
+      root.wallpaperAccentColor = ""
+      return
+    }
+    var imgPath = root.bgImagePath
+    if (!imgPath || imgPath.trim() === "") {
+      imgPath = (Quickshell.env("HOME") || "") + "/.local/state/omarchy/current/background"
+    }
+    if (paletteProcess.running) {
+      paletteProcess.running = false
+    }
+    paletteProcess.command = [root.extractAccentScript, imgPath]
+    paletteProcess.running = true
+  }
+
+  onBgImagePathChanged: root.updateWallpaperAccent()
+  onBgImageEnabledChanged: root.updateWallpaperAccent()
+  onBgAdaptiveAccentChanged: root.updateWallpaperAccent()
+
   Timer {
     id: tickTimer
     interval: 100
@@ -462,6 +514,13 @@ Item {
       root.saveSettings()
       root.showToast(root.bgVignette ? "Vignette: On" : "Vignette: Off")
       return root.bgVignette ? "on" : "off"
+    }
+
+    function toggleAdaptiveAccent(): string {
+      root.bgAdaptiveAccent = !root.bgAdaptiveAccent
+      root.saveSettings()
+      root.showToast(root.bgAdaptiveAccent ? "Adaptive Accent: On" : "Adaptive Accent: Off")
+      return root.bgAdaptiveAccent ? "on" : "off"
     }
   }
 
@@ -827,7 +886,7 @@ Item {
           font.family: Style.font.family
           font.pixelSize: 12
           font.bold: true
-          color: Commons.Color.menu.selectedText
+          color: root.themeAccent
         }
       }
 
@@ -920,7 +979,7 @@ Item {
               ? Util.alpha(Commons.Color.menu.background, 0.95)
               : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.82) : Util.alpha(Commons.Color.menu.text, 0.04))
             border.color: modeMouse.containsMouse
-              ? Util.alpha(Commons.Color.menu.selectedText, 0.4)
+              ? Util.alpha(root.themeAccent, 0.4)
               : Util.alpha(Commons.Color.menu.text, 0.2)
             border.width: 1
 
@@ -958,7 +1017,7 @@ Item {
                 }
                 font.family: Style.font.family
                 font.pixelSize: 12
-                color: Commons.Color.menu.selectedText
+                color: root.themeAccent
               }
 
               // Language toggle chip (ES / EN)
@@ -968,8 +1027,8 @@ Item {
                 width: langLabel.contentWidth + 10
                 radius: 4
                 anchors.verticalCenter: parent.verticalCenter
-                color: root.language === "spanish" ? Util.alpha(Commons.Color.menu.selectedText, 0.2) : "transparent"
-                border.color: root.language === "spanish" ? Util.alpha(Commons.Color.menu.selectedText, 0.4) : Util.alpha(Commons.Color.menu.text, 0.15)
+                color: root.language === "spanish" ? Util.alpha(root.themeAccent, 0.2) : "transparent"
+                border.color: root.language === "spanish" ? Util.alpha(root.themeAccent, 0.4) : Util.alpha(Commons.Color.menu.text, 0.15)
                 border.width: 1
 
                 OutlinedText {
@@ -979,7 +1038,7 @@ Item {
                   font.family: Style.font.family
                   font.pixelSize: 10
                   font.bold: true
-                  color: root.language === "spanish" ? Commons.Color.menu.selectedText : Util.alpha(Commons.Color.menu.text, 0.45)
+                  color: root.language === "spanish" ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.45)
                 }
 
                 MouseArea {
@@ -995,8 +1054,8 @@ Item {
                 width: puncLabel.contentWidth + 10
                 radius: 4
                 anchors.verticalCenter: parent.verticalCenter
-                color: root.punctuation ? Util.alpha(Commons.Color.menu.selectedText, 0.2) : "transparent"
-                border.color: root.punctuation ? Util.alpha(Commons.Color.menu.selectedText, 0.4) : "transparent"
+                color: root.punctuation ? Util.alpha(root.themeAccent, 0.2) : "transparent"
+                border.color: root.punctuation ? Util.alpha(root.themeAccent, 0.4) : "transparent"
                 border.width: 1
 
                 OutlinedText {
@@ -1006,7 +1065,7 @@ Item {
                   font.family: Style.font.family
                   font.pixelSize: 10
                   font.bold: root.punctuation
-                  color: root.punctuation ? Commons.Color.menu.selectedText : Util.alpha(Commons.Color.menu.text, 0.35)
+                  color: root.punctuation ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.35)
                 }
 
                 MouseArea {
@@ -1022,8 +1081,8 @@ Item {
                 width: numLabel.contentWidth + 10
                 radius: 4
                 anchors.verticalCenter: parent.verticalCenter
-                color: root.numbers ? Util.alpha(Commons.Color.menu.selectedText, 0.2) : "transparent"
-                border.color: root.numbers ? Util.alpha(Commons.Color.menu.selectedText, 0.4) : "transparent"
+                color: root.numbers ? Util.alpha(root.themeAccent, 0.2) : "transparent"
+                border.color: root.numbers ? Util.alpha(root.themeAccent, 0.4) : "transparent"
                 border.width: 1
 
                 OutlinedText {
@@ -1033,7 +1092,7 @@ Item {
                   font.family: Style.font.family
                   font.pixelSize: 10
                   font.bold: root.numbers
-                  color: root.numbers ? Commons.Color.menu.selectedText : Util.alpha(Commons.Color.menu.text, 0.35)
+                  color: root.numbers ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.35)
                 }
 
                 MouseArea {
@@ -1069,7 +1128,7 @@ Item {
             color: root.activeView === "stats"
               ? Commons.Color.menu.selectedBackground
               : (statsMouse.containsMouse ? Util.alpha(Commons.Color.menu.background, 0.95) : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.82) : Util.alpha(Commons.Color.menu.text, 0.04)))
-            border.color: root.activeView === "stats" ? Util.alpha(Commons.Color.menu.selectedText, 0.5) : Util.alpha(Commons.Color.menu.text, 0.2)
+            border.color: root.activeView === "stats" ? Util.alpha(root.themeAccent, 0.5) : Util.alpha(Commons.Color.menu.text, 0.2)
             border.width: 1
 
             OutlinedText {
@@ -1079,7 +1138,7 @@ Item {
               font.family: Style.font.family
               font.pixelSize: 12
               font.bold: root.activeView === "stats"
-              color: root.activeView === "stats" ? Commons.Color.menu.selectedText : Util.alpha(Commons.Color.menu.text, 0.6)
+              color: root.activeView === "stats" ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.6)
             }
 
             MouseArea {
@@ -1123,7 +1182,7 @@ Item {
             font.family: Style.font.family
             font.pixelSize: 18
             font.bold: true
-            color: (root.mode === "time" && root.stats.timeLeft <= 3) ? "#e06c75" : Commons.Color.menu.selectedText
+            color: (root.mode === "time" && root.stats.timeLeft <= 3) ? "#e06c75" : root.themeAccent
           }
 
           OutlinedText {
@@ -1170,7 +1229,7 @@ Item {
               font.family: Style.font.family
               font.pixelSize: 13
               font.bold: true
-              color: closeMouse.containsMouse ? Commons.Color.menu.selectedText : Util.alpha(Commons.Color.menu.text, 0.5)
+              color: closeMouse.containsMouse ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.5)
             }
 
             MouseArea {
@@ -1272,7 +1331,7 @@ Item {
                     width: 3.2
                     height: 35
                     radius: 1.6
-                    color: Commons.Color.menu.selectedText
+                    color: root.themeAccent
                     visible: !root.stats.isFinished && root.session && root.session.status !== "finished"
                     z: 10
 
@@ -1429,7 +1488,7 @@ Item {
               font.family: Style.font.family
               font.pixelSize: 115
               font.bold: true
-              color: Commons.Color.menu.selectedText
+              color: root.themeAccent
             }
 
             OutlinedText {
@@ -1528,7 +1587,7 @@ Item {
                   font.family: Style.font.family
                   font.pixelSize: 34
                   font.bold: true
-                  color: Commons.Color.menu.selectedText
+                  color: root.themeAccent
                 }
                 OutlinedText {
                   text: "best wpm"
@@ -1807,6 +1866,8 @@ Item {
           bgDim: root.bgDim
           bgAdaptiveDim: root.bgAdaptiveDim
           bgVignette: root.bgVignette
+          bgAdaptiveAccent: root.bgAdaptiveAccent
+          themeAccent: root.themeAccent
 
           onSettingsChanged: function(key, value) {
             if (key === "mode") root.setMode(value)
@@ -1854,6 +1915,10 @@ Item {
             else if (key === "bgVignette") {
               root.bgVignette = value
               root.showToast(root.bgVignette ? "Vignette: On" : "Vignette: Off")
+            }
+            else if (key === "bgAdaptiveAccent") {
+              root.bgAdaptiveAccent = value
+              root.showToast(root.bgAdaptiveAccent ? "Adaptive Accent: On" : "Adaptive Accent: Off")
             }
           }
           onSettingsCommit: root.saveSettings()
@@ -1920,8 +1985,8 @@ Item {
             width: 26
             height: 26
             radius: 6
-            color: Util.alpha(Commons.Color.menu.selectedText, 0.12)
-            border.color: Util.alpha(Commons.Color.menu.selectedText, 0.35)
+            color: Util.alpha(root.themeAccent, 0.12)
+            border.color: Util.alpha(root.themeAccent, 0.35)
             border.width: 1
             anchors.verticalCenter: parent.verticalCenter
 
@@ -1930,7 +1995,7 @@ Item {
               text: ""
               font.family: "omarchy"
               font.pixelSize: 14
-              color: Commons.Color.menu.selectedText
+              color: root.themeAccent
             }
           }
 
@@ -1982,7 +2047,7 @@ Item {
                 text: "Restart"
                 font.family: Style.font.family
                 font.pixelSize: 12
-                color: restartMouse.containsMouse ? Commons.Color.menu.selectedText : Util.alpha(Commons.Color.menu.text, 0.5)
+                color: restartMouse.containsMouse ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.5)
               }
 
               Rectangle {
@@ -1990,10 +2055,10 @@ Item {
                 height: 22
                 radius: 5
                 color: restartMouse.containsMouse
-                  ? Util.alpha(Commons.Color.menu.selectedText, 0.22)
+                  ? Util.alpha(root.themeAccent, 0.22)
                   : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.85) : Util.alpha(Commons.Color.menu.text, 0.08))
                 border.color: restartMouse.containsMouse
-                  ? Commons.Color.menu.selectedText
+                  ? root.themeAccent
                   : Util.alpha(Commons.Color.menu.text, 0.24)
                 border.width: 1
 
@@ -2043,7 +2108,7 @@ Item {
                 text: "Close"
                 font.family: Style.font.family
                 font.pixelSize: 12
-                color: closeFooterMouse.containsMouse ? Commons.Color.menu.selectedText : Util.alpha(Commons.Color.menu.text, 0.5)
+                color: closeFooterMouse.containsMouse ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.5)
               }
 
               Rectangle {
@@ -2051,10 +2116,10 @@ Item {
                 height: 22
                 radius: 5
                 color: closeFooterMouse.containsMouse
-                  ? Util.alpha(Commons.Color.menu.selectedText, 0.22)
+                  ? Util.alpha(root.themeAccent, 0.22)
                   : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.85) : Util.alpha(Commons.Color.menu.text, 0.08))
                 border.color: closeFooterMouse.containsMouse
-                  ? Commons.Color.menu.selectedText
+                  ? root.themeAccent
                   : Util.alpha(Commons.Color.menu.text, 0.24)
                 border.width: 1
 
