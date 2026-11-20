@@ -7,11 +7,11 @@ ShaderEffect {
   //            1.0 = bottom-up (footer: solid at bottom, dissolves up)
   property real direction: 0.0
   property real cellSize: 2.0
-  property real maxAlpha: 0.88
+  property real maxAlpha: 0.96
   property real minAlpha: 0.0
   property real ditherIntensity: 1.0
   property color color: "#0e1015"
-  property real solidSpan: 0.35
+  property real solidSpan: 0.45
 
   property real colorR: root.color.r
   property real colorG: root.color.g

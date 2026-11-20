@@ -895,14 +895,14 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        height: 74
+        height: 115
         direction: 0.0
         cellSize: root.bgCellSize
         ditherIntensity: root.bgDither ? 1.0 : 0.0
         color: Commons.Color.menu.background
-        maxAlpha: root.bgImageEnabled ? 0.92 : 0.0
+        maxAlpha: root.bgImageEnabled ? 0.96 : 0.0
         minAlpha: 0.0
-        solidSpan: 0.35
+        solidSpan: 0.45
         opacity: header.opacity
         visible: root.bgImageEnabled
       }
@@ -1932,14 +1932,14 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        height: 58
+        height: 90
         direction: 1.0
         cellSize: root.bgCellSize
         ditherIntensity: root.bgDither ? 1.0 : 0.0
         color: Commons.Color.menu.background
-        maxAlpha: root.bgImageEnabled ? 0.92 : 0.0
+        maxAlpha: root.bgImageEnabled ? 0.96 : 0.0
         minAlpha: 0.0
-        solidSpan: 0.35
+        solidSpan: 0.45
         opacity: footer.opacity
         visible: root.bgImageEnabled
       }
