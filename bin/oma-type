@@ -3,7 +3,7 @@
 
 set -uo pipefail
 
-PLUGIN_ID="juancasanueva.oma-type"
+PLUGIN_ID="juanstudy.oma-type"
 IPC_TARGET="oma-type"
 
 self=$(readlink -f "${BASH_SOURCE[0]}")
@@ -36,6 +36,8 @@ Background & Customization
   bg-toggle              Toggle background image on/off (Shortcut: Ctrl+B)
   dither-toggle          Toggle Bayer dithering shader on/off (Shortcut: Ctrl+D)
   vignette-toggle        Toggle perimeter vignette fade on/off (Shortcut: Ctrl+V)
+  accent-toggle          Toggle adaptive wallpaper accent on/off
+  palette [image-path]   Extract adaptive accent color from wallpaper
   config                 Print current configuration
 
 Setup
@@ -207,6 +209,8 @@ case "${1:-}" in
   bg-toggle) need_shell; ipc toggleBackground >/dev/null || cmd_bg ;;
   dither-toggle) need_shell; ipc toggleDither >/dev/null ;;
   vignette-toggle) need_shell; ipc toggleVignette >/dev/null ;;
+  accent-toggle) need_shell; ipc toggleAdaptiveAccent >/dev/null || true ;;
+  palette) shift; "$repo/bin/extract-accent" "${1:-}" ;;
   config) cmd_config ;;
   install) cmd_install ;;
   uninstall) cmd_uninstall ;;

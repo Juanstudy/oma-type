@@ -1,6 +1,6 @@
 {
   "name": "oma-type",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Minimalist, ultra-fast Monkeytype & Raycast-inspired typing practice plugin for Omarchy",
   "scripts": {
     "test": "node --test tests/*.test.js"
@@ -13,6 +13,6 @@
     "wayland",
     "qml"
   ],
-  "author": "juan",
+  "author": "Juan Pa",
   "license": "MIT"
 }
