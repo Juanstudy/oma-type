@@ -291,6 +291,8 @@ Item {
   }
 
   function resetTest() {
+    root.pendingAccent = ""
+    if (keyCatcher) keyCatcher.text = ""
     root.recordedCurrent = false
     root.sessionRevision = 0
     if (wordsFlickable) wordsFlickable.contentY = 0
@@ -531,14 +533,43 @@ Item {
         onClicked: keyCatcher.forceActiveFocus()
       }
 
-      Item {
+      TextInput {
         id: keyCatcher
         anchors.fill: parent
         focus: true
+        clip: true
+        color: "transparent"
+        cursorVisible: false
+        cursorDelegate: Item {}
+        selectByMouse: false
+
+        // Receive composed characters from Input Methods (e.g. fcitx5 dead keys: ´ + o -> ó, ñ, ü)
+        onTextEdited: {
+          if (root.activeView !== "test" || root.stats.isFinished) {
+            text = ""
+            return
+          }
+          if (text.length > 0) {
+            var committed = text
+            text = ""
+            for (var i = 0; i < committed.length; i++) {
+              var ch = committed.charAt(i)
+              if (ch.charCodeAt(0) >= 32) {
+                root.playKeySound()
+                EngineModule.handleKey(root.session, ch, Date.now())
+                root.sessionRevision++
+                root.updateStats()
+                root.updateCaretPosition()
+              }
+            }
+          }
+        }
+
         Keys.priority: Keys.BeforeItem
 
         Keys.onPressed: function(event) {
           if (event.key === Qt.Key_Escape) {
+            root.pendingAccent = ""
             if (root.activeView === "settings") {
               root.activeView = "test"
               event.accepted = true
@@ -555,6 +586,7 @@ Item {
           }
 
           if (event.key === Qt.Key_Tab) {
+            root.pendingAccent = ""
             root.activeView = "test"
             root.resetTest()
             event.accepted = true
@@ -687,11 +719,11 @@ Item {
           // Ignore any other Ctrl combination so it doesn't feed stray control chars
           if (isCtrl) return
 
-          // Dead keys (´ ` ¨ ^ ~) do not compose in this environment (no
-          // input method on the Wayland layer): stash the accent and compose
-          // it ourselves with the next printable character.
+          // Dead keys (´ ` ¨ ^ ~) fallback: if an environment does not route
+          // input methods (no fcitx/ibus), stash the accent and compose locally.
           if (KeysModule.isDeadKey(event.key)) {
             root.pendingAccent = KeysModule.deadAccent(event.key) || ""
+            event.accepted = true
             return
           }
 
@@ -699,9 +731,11 @@ Item {
           if (event.key === Qt.Key_Backspace) {
             root.pendingAccent = ""
             keyStr = "Backspace"
+            event.accepted = true
           } else if (event.key === Qt.Key_Space) {
             root.pendingAccent = ""
             keyStr = " "
+            event.accepted = true
           } else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32) {
             keyStr = event.text
             if (root.pendingAccent !== "") {
