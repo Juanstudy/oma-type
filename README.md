@@ -96,11 +96,3 @@ Settings are automatically saved on every change to `~/.config/oma-type/settings
 * `punctuation`: `true` | `false`
 * `numbers`: `true` | `false`
 * `soundVolume`: `0.0` to `1.0` (PipeWire switch playback volume)
-
-
-
----
-
-## Architecture & Memory Record
-
-See [`ENGRAM.md`](ENGRAM.md) for the full architectural record, post-mortems (Wayland focus, PipeWire audio, layout binding loops), and test suite documentation.
