@@ -831,6 +831,23 @@ Item {
         }
       }
 
+      // Header Dithered Scrim (Bayer ordered dissolve for ambient contrast)
+      DitheredScrim {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: 74
+        direction: 0.0
+        cellSize: root.bgCellSize
+        ditherIntensity: root.bgDither ? 1.0 : 0.0
+        color: Commons.Color.menu.background
+        maxAlpha: root.bgImageEnabled ? 0.92 : 0.0
+        minAlpha: 0.0
+        solidSpan: 0.35
+        opacity: header.opacity
+        visible: root.bgImageEnabled
+      }
+
       // ---------------------------------------------------- Header (Scaled 1.25x)
       Item {
         id: header
@@ -861,7 +878,11 @@ Item {
           radius: 8
           anchors.left: parent.left
           anchors.verticalCenter: parent.verticalCenter
-          color: backMouse.containsMouse ? Util.alpha(Commons.Color.menu.text, 0.1) : "transparent"
+          color: backMouse.containsMouse
+            ? Util.alpha(Commons.Color.menu.background, 0.95)
+            : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.8) : Util.alpha(Commons.Color.menu.text, 0.04))
+          border.color: Util.alpha(Commons.Color.menu.text, 0.18)
+          border.width: 1
 
           OutlinedText {
             anchors.centerIn: parent
@@ -895,8 +916,12 @@ Item {
             height: 34
             width: modePillContent.width + 24
             radius: 8
-            color: modeMouse.containsMouse ? Util.alpha(Commons.Color.menu.text, 0.08) : Util.alpha(Commons.Color.menu.text, 0.04)
-            border.color: Util.alpha(Commons.Color.menu.text, 0.1)
+            color: modeMouse.containsMouse
+              ? Util.alpha(Commons.Color.menu.background, 0.95)
+              : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.82) : Util.alpha(Commons.Color.menu.text, 0.04))
+            border.color: modeMouse.containsMouse
+              ? Util.alpha(Commons.Color.menu.selectedText, 0.4)
+              : Util.alpha(Commons.Color.menu.text, 0.2)
             border.width: 1
 
             Row {
@@ -1043,8 +1068,8 @@ Item {
             radius: 8
             color: root.activeView === "stats"
               ? Commons.Color.menu.selectedBackground
-              : (statsMouse.containsMouse ? Util.alpha(Commons.Color.menu.text, 0.08) : Util.alpha(Commons.Color.menu.text, 0.04))
-            border.color: Util.alpha(Commons.Color.menu.text, 0.1)
+              : (statsMouse.containsMouse ? Util.alpha(Commons.Color.menu.background, 0.95) : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.82) : Util.alpha(Commons.Color.menu.text, 0.04)))
+            border.color: root.activeView === "stats" ? Util.alpha(Commons.Color.menu.selectedText, 0.5) : Util.alpha(Commons.Color.menu.text, 0.2)
             border.width: 1
 
             OutlinedText {
@@ -1133,7 +1158,11 @@ Item {
             height: 28
             radius: 6
             anchors.verticalCenter: parent.verticalCenter
-            color: closeMouse.containsMouse ? Util.alpha(Commons.Color.menu.text, 0.1) : "transparent"
+            color: closeMouse.containsMouse
+              ? Util.alpha(Commons.Color.menu.background, 0.95)
+              : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.75) : "transparent")
+            border.color: Util.alpha(Commons.Color.menu.text, 0.18)
+            border.width: 1
 
             OutlinedText {
               anchors.centerIn: parent
@@ -1162,7 +1191,7 @@ Item {
         anchors.right: parent.right
         anchors.top: header.bottom
         height: 1
-        color: Util.alpha(Commons.Color.menu.text, 0.08)
+        color: Util.alpha(Commons.Color.menu.text, 0.14)
         opacity: header.opacity
         visible: !(root.bgImageEnabled && root.bgImagePath !== "" && root.bgVignette)
         Behavior on opacity {
@@ -1833,6 +1862,23 @@ Item {
         }
       }
 
+      // Footer Dithered Scrim (Bayer ordered dissolve for ambient contrast)
+      DitheredScrim {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: 58
+        direction: 1.0
+        cellSize: root.bgCellSize
+        ditherIntensity: root.bgDither ? 1.0 : 0.0
+        color: Commons.Color.menu.background
+        maxAlpha: root.bgImageEnabled ? 0.92 : 0.0
+        minAlpha: 0.0
+        solidSpan: 0.35
+        opacity: footer.opacity
+        visible: root.bgImageEnabled
+      }
+
       // ---------------------------------------------------- Footer (Scaled 1.25x)
       Rectangle {
         id: footer
@@ -1859,7 +1905,7 @@ Item {
           anchors.right: parent.right
           anchors.top: parent.top
           height: 1
-          color: Util.alpha(Commons.Color.menu.text, 0.06)
+          color: Util.alpha(Commons.Color.menu.text, 0.12)
           visible: !(root.bgImageEnabled && root.bgImagePath !== "" && root.bgVignette)
         }
 
@@ -1870,12 +1916,22 @@ Item {
           anchors.verticalCenter: parent.verticalCenter
           spacing: 12
 
-          OutlinedText {
+          Rectangle {
+            width: 26
+            height: 26
+            radius: 6
+            color: Util.alpha(Commons.Color.menu.selectedText, 0.12)
+            border.color: Util.alpha(Commons.Color.menu.selectedText, 0.35)
+            border.width: 1
             anchors.verticalCenter: parent.verticalCenter
-            text: ""
-            font.family: "omarchy"
-            font.pixelSize: 16
-            color: Commons.Color.menu.selectedText
+
+            OutlinedText {
+              anchors.centerIn: parent
+              text: ""
+              font.family: "omarchy"
+              font.pixelSize: 14
+              color: Commons.Color.menu.selectedText
+            }
           }
 
           OutlinedText {
@@ -1883,7 +1939,8 @@ Item {
             text: "Typing Practice"
             font.family: Style.font.family
             font.pixelSize: 14
-            color: Util.alpha(Commons.Color.menu.text, 0.6)
+            font.bold: true
+            color: Util.alpha(Commons.Color.menu.text, 0.75)
           }
 
           Rectangle {
@@ -1932,8 +1989,12 @@ Item {
                 width: 36
                 height: 22
                 radius: 5
-                color: restartMouse.containsMouse ? Util.alpha(Commons.Color.menu.text, 0.15) : Util.alpha(Commons.Color.menu.text, 0.08)
-                border.color: Util.alpha(Commons.Color.menu.text, 0.15)
+                color: restartMouse.containsMouse
+                  ? Util.alpha(Commons.Color.menu.selectedText, 0.22)
+                  : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.85) : Util.alpha(Commons.Color.menu.text, 0.08))
+                border.color: restartMouse.containsMouse
+                  ? Commons.Color.menu.selectedText
+                  : Util.alpha(Commons.Color.menu.text, 0.24)
                 border.width: 1
 
                 OutlinedText {
@@ -1989,8 +2050,12 @@ Item {
                 width: 36
                 height: 22
                 radius: 5
-                color: closeFooterMouse.containsMouse ? Util.alpha(Commons.Color.menu.text, 0.15) : Util.alpha(Commons.Color.menu.text, 0.08)
-                border.color: Util.alpha(Commons.Color.menu.text, 0.15)
+                color: closeFooterMouse.containsMouse
+                  ? Util.alpha(Commons.Color.menu.selectedText, 0.22)
+                  : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.85) : Util.alpha(Commons.Color.menu.text, 0.08))
+                border.color: closeFooterMouse.containsMouse
+                  ? Commons.Color.menu.selectedText
+                  : Util.alpha(Commons.Color.menu.text, 0.24)
                 border.width: 1
 
                 OutlinedText {
