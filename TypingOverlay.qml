@@ -235,7 +235,6 @@ Item {
     root.bgColorLevels = s.bgColorLevels
     root.bgCellSize = s.bgCellSize
     root.bgAdaptiveDim = s.bgAdaptiveDim
-    root.bgColorLevels = s.bgColorLevels
     root.bgDim = s.bgDim
     root.bgVignette = (s.bgVignette !== undefined) ? s.bgVignette : false
     root.settingsLoaded = true
