@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="assets/hero.svg" alt="oma-type — Minimalist, ultra-fast typing practice for Omarchy &amp; Wayland" width="880">
+<img src="assets/preview.png" alt="oma-type — Minimalist, ultra-fast typing practice for Omarchy &amp; Wayland" width="880">
 
 <p align="center">
   <strong>Minimalist, ultra-low-latency typing practice engine inspired by Monkeytype &amp; Raycast.</strong><br>
