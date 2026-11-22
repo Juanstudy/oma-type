@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "juanstudy.oma-type",
   "name": "Oma Type",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "author": "Juan Pa",
   "description": "Minimalist Monkeytype-style typing speed test for Omarchy",
   "kinds": [
