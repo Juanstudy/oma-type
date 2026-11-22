@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Package and Publish Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run test suite
+        run: npm test
+
+      - name: Package release archives
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          echo "Packaging artifacts for ${VERSION}..."
+
+          # Create clean archive bundles
+          git archive --format=tar.gz --prefix="oma-type-${VERSION}/" -o "oma-type-${VERSION}.tar.gz" "${VERSION}"
+          git archive --format=zip --prefix="oma-type-${VERSION}/" -o "oma-type-${VERSION}.zip" "${VERSION}"
+
+          # Generate cryptographic checksums
+          sha256sum "oma-type-${VERSION}.tar.gz" "oma-type-${VERSION}.zip" > SHA256SUMS.txt
+
+          ls -lh oma-type-${VERSION}.* SHA256SUMS.txt
+
+      - name: Publish to GitHub Releases
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+
+          # Ensure release exists or create it with auto-generated notes
+          if ! gh release view "${VERSION}" >/dev/null 2>&1; then
+            gh release create "${VERSION}" --title "${VERSION}" --generate-notes
+          fi
+
+          # Upload bundle artifacts and checksums
+          gh release upload "${VERSION}" "oma-type-${VERSION}.tar.gz" "oma-type-${VERSION}.zip" SHA256SUMS.txt --clobber
