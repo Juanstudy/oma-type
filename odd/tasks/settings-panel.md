@@ -51,4 +51,8 @@ In-overlay slide-in panel (Monkeytype-style), NOT a separate Quickshell window:
 * [x] P4 background section — image toggle + path TextInput + blur/dither/
   intensity/levels(2-16)/cell(1-6)/dim/adaptive-dim/vignette rows; every change
   updates the bound root property and commits through `saveSettings`.
+* [x] P4.1 UI Redesign — Category navigation (typing, sound, appearance), tactile
+  card grouping (SettingCard with accent headers), 100% opaque contrast plate to
+  neutralize dither noise bleed, proportional 620px centered layout, native file
+  picker (bin/pick-image), and header mode pill deduplication.
 * [ ] P5 retire F1-F4 menus

@@ -5,6 +5,7 @@ set -uo pipefail
 
 PLUGIN_ID="juanstudy.oma-type"
 IPC_TARGET="oma-type"
+VERSION="0.2.0"
 
 self=$(readlink -f "${BASH_SOURCE[0]}")
 repo=$(cd "$(dirname "$self")/.." && pwd)
@@ -136,7 +137,7 @@ cmd_doctor() {
     local label=$1; shift
     if "$@" >/dev/null 2>&1; then printf '  ok    %s\n' "$label"; else printf '  FAIL  %s\n' "$label"; bad=1; fi
   }
-  echo "oma-type doctor"
+  echo "oma-type v$VERSION doctor"
   check "omarchy-shell is installed" command -v omarchy-shell
   check "omarchy-shell is running" omarchy-shell shell ping
   check "plugin is linked into $plugins_dir" test -n "$(current_link)"
@@ -220,6 +221,7 @@ case "${1:-}" in
   uninstall) cmd_uninstall ;;
   reload) cmd_reload ;;
   doctor) cmd_doctor ;;
+  -v|--version|version) echo "oma-type v$VERSION" ;;
   -h|--help|help|"") usage ;;
   *) usage >&2; exit 1 ;;
 esac

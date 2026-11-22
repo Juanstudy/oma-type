@@ -1,6 +1,6 @@
 {
   "name": "oma-type",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "description": "Minimalist, ultra-fast Monkeytype & Raycast-inspired typing practice plugin for Omarchy",
   "scripts": {
     "test": "node --test tests/*.test.js"
