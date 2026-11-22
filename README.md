@@ -56,6 +56,7 @@ bin/oma-type doctor
 | `F2` | `Ctrl + L` / `Ctrl + D` | Cycle option: Timer (`15s`/`30s`/`60s`), Words (`10`/`25`/`50`/`100`), or Quote (`short`/`medium`) |
 | `F3` | `Ctrl + S` | Cycle mechanical sound (`thock` → `cream` → `topre` → `clicky` → `typewriter` → `off`) |
 | `F4` | `Ctrl + H` / `Ctrl + E` | Toggle stats & analytics graph |
+| `F11` | `Ctrl + Shift + M` | Toggle focus / maximized mode (also double-click header or click `⤢`/`⤡`) |
 | `Ctrl + Up` | — | Increase volume (+5%) with floating HUD toast |
 | `Ctrl + Down` | — | Decrease volume (-5%) with floating HUD toast |
 | `Ctrl + I` | — | Toggle language (`English` ↔ `Spanish`) with floating HUD toast |
@@ -96,11 +97,7 @@ Settings are automatically saved on every change to `~/.config/oma-type/settings
 * `punctuation`: `true` | `false`
 * `numbers`: `true` | `false`
 * `soundVolume`: `0.0` to `1.0` (PipeWire switch playback volume)
-
-
-
----
-
-## Architecture & Memory Record
-
-See [`ENGRAM.md`](ENGRAM.md) for the full architectural record, post-mortems (Wayland focus, PipeWire audio, layout binding loops), and test suite documentation.
+* `bgImageEnabled`: `true` | `false` (Translucent dithered wallpaper overlay)
+* `bgImagePath`: Path to background image (empty = system wallpaper link)
+* `bgAdaptiveAccent`: `true` | `false` (Auto-harmonizes UI accents with active wallpaper palette)
+* `bgDither`: `true` | `false` (Bayer 8x8 hardware shader dithering)

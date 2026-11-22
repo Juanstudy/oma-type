@@ -11,13 +11,14 @@ import "core/Quotes.js" as QuotesModule
 import "core/Engine.js" as EngineModule
 import "core/History.js" as HistoryModule
 import "core/Settings.js" as SettingsModule
+import "core/Keys.js" as KeysModule
 import "components"
 
 Item {
   id: root
 
   property bool opened: false
-  property string activeView: "test" // "test" | "stats"
+  property string activeView: "test" // "test" | "stats" | "settings"
   property string mode: "quote" // "quote" | "time" | "words"
   property string quoteLength: "short" // "short" | "medium"
   property int duration: 15 // 15, 30, or 60 seconds
@@ -44,23 +45,130 @@ Item {
 
   property double bgDim: 0.4
   property bool bgVignette: false
+  property bool bgAdaptiveAccent: true
+  property string wallpaperAccentColor: ""
+  readonly property color themeAccent: {
+    if (root.bgImageEnabled && root.bgAdaptiveAccent && root.wallpaperAccentColor !== "") {
+      return root.wallpaperAccentColor
+    }
+    return Commons.Color.menu.selectedText
+  }
   property bool settingsLoaded: false
-  property string soundBaseDir: Quickshell.env("HOME") + "/Projects/oma-type/assets/sounds"
+  property string pendingAccent: ""
+  property bool focusPrimed: false
+  property bool isMaximized: false
+  property real cardCustomWidth: 1080
+  property real cardCustomHeight: 640
+  property real cardOffsetX: 0
+  property real cardOffsetY: 0
+  property bool isDraggingWindow: false
+  property bool isResizingWindow: false
+  property real windowScale: 1.0
+  property real maximizedScale: 1.35
+  readonly property real targetUiScale: root.isMaximized ? root.maximizedScale : root.windowScale
+  property real uiScale: targetUiScale
+
+  Behavior on uiScale {
+    NumberAnimation {
+      id: uiScaleAnim
+      duration: 220
+      easing.type: Easing.OutCubic
+      onRunningChanged: {
+        if (!running && root.opened) {
+          Qt.callLater(root.updateCaretPosition)
+        }
+      }
+    }
+  }
+
+  onUiScaleChanged: {
+    if (root.opened) {
+      Qt.callLater(root.updateCaretPosition)
+    }
+  }
+
+  function scaled(val) {
+    return Math.round(val * root.uiScale)
+  }
+
+  function toggleMaximize() {
+    root.isMaximized = !root.isMaximized
+    root.showToast(root.isMaximized ? "Focus Mode: On" : "Focus Mode: Off")
+    Qt.callLater(function() {
+      root.updateCaretPosition()
+      keyCatcher.forceActiveFocus()
+    })
+  }
+
+  function resetWindowPosition() {
+    root.isMaximized = false
+    root.cardCustomWidth = 1080
+    root.cardCustomHeight = 640
+    root.cardOffsetX = 0
+    root.cardOffsetY = 0
+  }
+  // Resolve relative to this QML file (repo root) so the plugin works through
+  // the omarchy plugins symlink without a hardcoded home path. Must stay a raw
+  // filesystem path: the consumer is pw-play, not an Audio element.
+  property string soundBaseDir: {
+    var override = Quickshell.env("OMA_TYPE_SOUNDS_DIR")
+    if (override && override.trim() !== "") return override.trim()
+    var url = Qt.resolvedUrl("assets/sounds").toString()
+    return url.indexOf("file://") === 0 ? decodeURIComponent(url.substring(7)) : url
+  }
+  property string extractAccentScript: {
+    var override = Quickshell.env("OMA_TYPE_EXTRACT_ACCENT")
+    if (override && override.trim() !== "") return override.trim()
+    var url = Qt.resolvedUrl("bin/extract-accent").toString()
+    return url.indexOf("file://") === 0 ? decodeURIComponent(url.substring(7)) : url
+  }
   property double lastSoundTime: 0
 
   property var history: []
   property var summary: ({ totalTests: 0, bestWpm: 0, avgWpm: 0, avgAccuracy: 0, totalSeconds: 0 })
   property bool recordedCurrent: false
 
+  // Dismiss Omarchy's "Launching Typing Practice..." feedback OSD.
+  // Because oma-type is a LayerShell overlay and not an XDG toplevel,
+  // omarchy's AppLibrary waits 15s for a toplevel window to appear before
+  // dismissing the OSD. This timer intercepts and closes it promptly.
+  Timer {
+    id: osdDismissTimer
+    interval: 200
+    repeat: true
+    property int attempts: 0
+    onTriggered: {
+      attempts++
+      Quickshell.execDetached(["omarchy-shell", "osd", "close"])
+      if (attempts >= 14) stop()
+    }
+  }
+
   function open() {
     root.opened = true
+    root.focusPrimed = false
+    focusPrimeTimer.restart()
+    osdDismissTimer.attempts = 0
+    osdDismissTimer.restart()
     root.activeView = "test"
+    root.isMaximized = false
+    root.cardCustomWidth = 1080
+    root.cardCustomHeight = 640
+    root.cardOffsetX = 0
+    root.cardOffsetY = 0
     root.resetTest()
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
   }
 
   function close() {
+    focusPrimeTimer.stop()
+    root.focusPrimed = false
     root.opened = false
+    root.isMaximized = false
+    root.cardCustomWidth = 1080
+    root.cardCustomHeight = 640
+    root.cardOffsetX = 0
+    root.cardOffsetY = 0
   }
 
   function toggle() {
@@ -220,11 +328,12 @@ Item {
     root.bgColorLevels = s.bgColorLevels
     root.bgCellSize = s.bgCellSize
     root.bgAdaptiveDim = s.bgAdaptiveDim
-    root.bgColorLevels = s.bgColorLevels
     root.bgDim = s.bgDim
     root.bgVignette = (s.bgVignette !== undefined) ? s.bgVignette : false
+    root.bgAdaptiveAccent = (s.bgAdaptiveAccent !== undefined) ? s.bgAdaptiveAccent : true
     root.settingsLoaded = true
     root.resetTest()
+    root.updateWallpaperAccent()
     if (!jsonText || jsonText === "{}" || jsonText.trim() === "") {
       root.saveSettings()
     }
@@ -251,7 +360,8 @@ Item {
       bgCellSize: root.bgCellSize,
       bgAdaptiveDim: root.bgAdaptiveDim,
       bgDim: root.bgDim,
-      bgVignette: root.bgVignette
+      bgVignette: root.bgVignette,
+      bgAdaptiveAccent: root.bgAdaptiveAccent
     }
     settingsFile.setText(SettingsModule.serializeSettings(data))
   }
@@ -281,6 +391,8 @@ Item {
   }
 
   function resetTest() {
+    root.pendingAccent = ""
+    if (keyCatcher) keyCatcher.text = ""
     root.recordedCurrent = false
     root.sessionRevision = 0
     if (wordsFlickable) wordsFlickable.contentY = 0
@@ -293,7 +405,7 @@ Item {
       root.session = EngineModule.createSession({ mode: "words", words: wordList })
     } else {
       var lastQuoteId = root.session && root.session.quote ? root.session.quote.id : null
-      var q = QuotesModule.getRandomQuote(root.quoteLength, lastQuoteId)
+      var q = QuotesModule.getRandomQuote(root.quoteLength, lastQuoteId, root.language)
       var words = QuotesModule.splitQuoteIntoWords(q.text)
       root.session = EngineModule.createSession({ mode: "quote", words: words, quote: q })
     }
@@ -330,7 +442,7 @@ Item {
     smoothCaret.targetY = wItem.y + 2
 
     // Auto-scroll if word is below current viewport
-    var caretBottom = wItem.y + 44
+    var caretBottom = wItem.y + root.scaled(44)
     if (caretBottom > wordsFlickable.contentY + wordsFlickable.height) {
       wordsFlickable.contentY = Math.max(0, wItem.y - 12)
     } else if (wItem.y < wordsFlickable.contentY) {
@@ -377,6 +489,41 @@ Item {
     onLoadFailed: function(err) { root.loadHistory("[]") }
   }
 
+  Process {
+    id: paletteProcess
+    command: []
+    stdout: StdioCollector {
+      id: paletteOut
+      waitForEnd: true
+      onStreamFinished: {
+        var col = String(paletteOut.text || "").trim()
+        if (col && /^#[0-9a-fA-F]{6}$/.test(col)) {
+          root.wallpaperAccentColor = col
+        }
+      }
+    }
+  }
+
+  function updateWallpaperAccent() {
+    if (!root.bgImageEnabled || !root.bgAdaptiveAccent) {
+      root.wallpaperAccentColor = ""
+      return
+    }
+    var imgPath = root.bgImagePath
+    if (!imgPath || imgPath.trim() === "") {
+      imgPath = (Quickshell.env("HOME") || "") + "/.local/state/omarchy/current/background"
+    }
+    if (paletteProcess.running) {
+      paletteProcess.running = false
+    }
+    paletteProcess.command = [root.extractAccentScript, imgPath]
+    paletteProcess.running = true
+  }
+
+  onBgImagePathChanged: root.updateWallpaperAccent()
+  onBgImageEnabledChanged: root.updateWallpaperAccent()
+  onBgAdaptiveAccentChanged: root.updateWallpaperAccent()
+
   Timer {
     id: tickTimer
     interval: 100
@@ -408,6 +555,35 @@ Item {
 
     function isOpen(): string {
       return root.opened ? "true" : "false"
+    }
+
+    function toggleFocus(): string {
+      root.toggleMaximize()
+      return root.isMaximized ? "maximized" : "restored"
+    }
+
+    function resetPosition(): string {
+      root.resetWindowPosition()
+      return "ok"
+    }
+
+    function setScale(val: string): string {
+      var s = parseFloat(val)
+      if (!isNaN(s) && s >= 0.8 && s <= 2.5) {
+        if (root.isMaximized) {
+          root.maximizedScale = s
+        } else {
+          root.windowScale = s
+        }
+        root.showToast("Scale: " + Math.round(s * 100) + "%")
+        Qt.callLater(root.updateCaretPosition)
+        return "ok: " + s
+      }
+      return "invalid: " + val
+    }
+
+    function getScale(): string {
+      return String(root.uiScale)
     }
 
     function reset(): string {
@@ -447,6 +623,19 @@ Item {
       root.showToast(root.bgVignette ? "Vignette: On" : "Vignette: Off")
       return root.bgVignette ? "on" : "off"
     }
+
+    function toggleAdaptiveAccent(): string {
+      root.bgAdaptiveAccent = !root.bgAdaptiveAccent
+      root.saveSettings()
+      root.showToast(root.bgAdaptiveAccent ? "Adaptive Accent: On" : "Adaptive Accent: Off")
+      return root.bgAdaptiveAccent ? "on" : "off"
+    }
+  }
+
+  Timer {
+    id: focusPrimeTimer
+    interval: 75
+    onTriggered: if (root.opened) root.focusPrimed = true
   }
 
   PanelWindow {
@@ -456,39 +645,105 @@ Item {
     color: "transparent"
     WlrLayershell.namespace: "oma-type"
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: root.opened ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: root.opened
+      ? (root.focusPrimed ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive)
+      : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
 
     onVisibleChanged: {
-      if (visible) Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+      if (visible) {
+        root.focusPrimed = false
+        focusPrimeTimer.restart()
+        Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+      } else {
+        focusPrimeTimer.stop()
+        root.focusPrimed = false
+      }
     }
 
-    // Scrim backdrop with smooth fade-in
-    Rectangle {
+    Item {
+      id: overlayContainer
       anchors.fill: parent
-      color: "#000000"
-      opacity: root.opened ? 0.72 : 0.0
 
-      Behavior on opacity {
-        NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
-      }
-
-      MouseArea {
+      // Scrim backdrop with smooth fade-in
+      Rectangle {
         anchors.fill: parent
-        onClicked: root.close()
-      }
-    }
+        color: "#000000"
+        opacity: root.opened ? (root.isMaximized ? 0.0 : 0.72) : 0.0
 
-    // Centered card (Scaled 1.25x: 1080×640)
-    BorderSurface {
-      id: card
-      width: Math.min(1080, parent.width - Style.space(32))
-      height: Math.min(640, parent.height - Style.space(32))
-      anchors.centerIn: parent
-      radius: Math.max(Style.cornerRadius, 14)
-      color: Commons.Color.menu.background
-      borderSpec: Border.surfaceSpec("menu", "border", Commons.Color.menu.border, 1)
-      clip: true
+        Behavior on opacity {
+          NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          enabled: !root.isMaximized
+          onClicked: root.close()
+        }
+      }
+
+      // Centered card (Scaled 1.25x: 1080×640, Resizable, or Fullscreen Focus Mode)
+      BorderSurface {
+        id: card
+        width: root.isMaximized ? overlayContainer.width : Math.min(root.cardCustomWidth, overlayContainer.width - Style.space(32))
+        height: root.isMaximized ? overlayContainer.height : Math.min(root.cardCustomHeight, overlayContainer.height - Style.space(32))
+
+        x: root.isMaximized ? 0 : Math.round(Math.max(16, Math.min(overlayContainer.width - width - 16, (overlayContainer.width - width) / 2 + root.cardOffsetX)))
+        y: root.isMaximized ? 0 : Math.round(Math.max(16, Math.min(overlayContainer.height - height - 16, (overlayContainer.height - height) / 2 + root.cardOffsetY)))
+
+        property real cardOffsetX: root.cardOffsetX
+        property real cardOffsetY: root.cardOffsetY
+
+        radius: root.isMaximized ? 0 : Math.max(Style.cornerRadius, 14)
+        color: Commons.Color.menu.background
+        borderSpec: Border.surfaceSpec("menu", "border", Commons.Color.menu.border, root.isMaximized ? 0 : 1)
+        clip: true
+
+        Behavior on x {
+          enabled: !root.isDraggingWindow && !root.isResizingWindow
+          NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+        }
+        Behavior on y {
+          enabled: !root.isDraggingWindow && !root.isResizingWindow
+          NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+        }
+        Behavior on width {
+          enabled: !root.isResizingWindow
+          NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+        }
+        Behavior on height {
+          enabled: !root.isResizingWindow
+          NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+        }
+        Behavior on radius {
+          NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+        }
+
+        onWidthChanged: {
+          if (root.opened) {
+            Qt.callLater(root.updateCaretPosition)
+          }
+        }
+
+        ResizeHandles {
+          id: resizeHandles
+          targetCard: card
+          overlay: overlayContainer
+          enabled: !root.isMaximized
+          onResizingChanged: root.isResizingWindow = resizing
+          onUpdateDimensions: function(newW, newH, newOffX, newOffY) {
+            root.cardCustomWidth = newW
+            root.cardCustomHeight = newH
+            root.cardOffsetX = newOffX
+            root.cardOffsetY = newOffY
+          }
+          onResizeCommitted: {
+            Qt.callLater(function() {
+              root.updateCaretPosition()
+              keyCatcher.forceActiveFocus()
+            })
+          }
+        }
 
       DitheredBackground {
         anchors.fill: parent
@@ -516,19 +771,80 @@ Item {
         NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
       }
 
+      focus: true
+      Keys.forwardTo: [keyCatcher]
+      Keys.onEscapePressed: function(event) {
+        root.pendingAccent = ""
+        if (root.activeView === "settings" || root.activeView === "stats") {
+          root.activeView = "test"
+        } else {
+          root.close()
+        }
+        event.accepted = true
+      }
+
       MouseArea {
         anchors.fill: parent
+        z: -1
         onClicked: keyCatcher.forceActiveFocus()
       }
 
-      Item {
+      TextInput {
         id: keyCatcher
-        anchors.fill: parent
+        x: 0
+        y: 0
+        width: 1
+        height: 1
+        opacity: 0
         focus: true
+        clip: true
+        color: "transparent"
+        cursorVisible: false
+        cursorDelegate: Item {}
+        selectByMouse: false
+
+        onActiveFocusChanged: {
+          if (!activeFocus && root.opened && root.activeView !== "settings") {
+            Qt.callLater(function() {
+              if (root.opened && root.activeView !== "settings") {
+                keyCatcher.forceActiveFocus()
+              }
+            })
+          }
+        }
+
+        // Receive composed characters from Input Methods (e.g. fcitx5 dead keys: ´ + o -> ó, ñ, ü)
+        onTextEdited: {
+          if (root.activeView !== "test" || root.stats.isFinished) {
+            text = ""
+            return
+          }
+          if (text.length > 0) {
+            var committed = text
+            text = ""
+            for (var i = 0; i < committed.length; i++) {
+              var ch = committed.charAt(i)
+              if (ch.charCodeAt(0) >= 32) {
+                root.playKeySound()
+                EngineModule.handleKey(root.session, ch, Date.now())
+                root.sessionRevision++
+                root.updateStats()
+                root.updateCaretPosition()
+              }
+            }
+          }
+        }
+
         Keys.priority: Keys.BeforeItem
 
         Keys.onPressed: function(event) {
           if (event.key === Qt.Key_Escape) {
+            root.pendingAccent = ""
+            if (root.activeView === "settings") {
+              root.activeView = "test"
+              event.accepted = true
+              return
+            }
             if (root.activeView === "stats") {
               root.activeView = "test"
               event.accepted = true
@@ -540,6 +856,7 @@ Item {
           }
 
           if (event.key === Qt.Key_Tab) {
+            root.pendingAccent = ""
             root.activeView = "test"
             root.resetTest()
             event.accepted = true
@@ -548,6 +865,20 @@ Item {
 
           // Shortcuts: F-keys and Ctrl combinations
           var isCtrl = (event.modifiers & Qt.ControlModifier)
+
+          // Ctrl+Comma: Toggle Settings panel
+          if (isCtrl && event.key === Qt.Key_Comma) {
+            root.activeView = (root.activeView === "settings") ? "test" : "settings"
+            event.accepted = true
+            return
+          }
+
+          // F11 or Ctrl+Shift+M: Toggle Focus / Maximized Mode
+          if (event.key === Qt.Key_F11 || (isCtrl && (event.modifiers & Qt.ShiftModifier) && event.key === Qt.Key_M)) {
+            root.toggleMaximize()
+            event.accepted = true
+            return
+          }
 
           // F1 or Ctrl+M: Toggle Mode (Quote <-> Time)
           if (event.key === Qt.Key_F1 || (isCtrl && event.key === Qt.Key_M)) {
@@ -649,6 +980,10 @@ Item {
             return
           }
 
+          // Settings view swallows everything so typing never reaches the
+          // test handler while the panel is open (shortcuts above still work)
+          if (root.activeView === "settings") return
+
           if (root.stats.isFinished) {
             if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
               root.resetTest()
@@ -661,10 +996,31 @@ Item {
           // Ignore any other Ctrl combination so it doesn't feed stray control chars
           if (isCtrl) return
 
+          // Dead keys (´ ` ¨ ^ ~) fallback: if an environment does not route
+          // input methods (no fcitx/ibus), stash the accent and compose locally.
+          if (KeysModule.isDeadKey(event.key)) {
+            root.pendingAccent = KeysModule.deadAccent(event.key) || ""
+            event.accepted = true
+            return
+          }
+
           var keyStr = ""
-          if (event.key === Qt.Key_Backspace) keyStr = "Backspace"
-          else if (event.key === Qt.Key_Space) keyStr = " "
-          else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32) keyStr = event.text
+          if (event.key === Qt.Key_Backspace) {
+            root.pendingAccent = ""
+            keyStr = "Backspace"
+            event.accepted = true
+          } else if (event.key === Qt.Key_Space) {
+            root.pendingAccent = ""
+            keyStr = " "
+            event.accepted = true
+          } else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32) {
+            keyStr = event.text
+            if (root.pendingAccent !== "") {
+              var composed = KeysModule.composeAccent(root.pendingAccent, event.text)
+              if (composed) keyStr = composed
+              root.pendingAccent = ""
+            }
+          }
 
           if (keyStr) {
             root.playKeySound()
@@ -681,11 +1037,11 @@ Item {
       Rectangle {
         id: hudToast
         anchors.top: parent.top
-        anchors.topMargin: 16
+        anchors.topMargin: root.scaled(16)
         anchors.horizontalCenter: parent.horizontalCenter
-        height: 32
-        width: toastText.contentWidth + 26
-        radius: 16
+        height: root.scaled(32)
+        width: toastText.contentWidth + root.scaled(26)
+        radius: root.scaled(16)
         color: Commons.Color.menu.selectedBackground
         opacity: root.toastVisible ? 1.0 : 0.0
         visible: opacity > 0.01
@@ -695,15 +1051,32 @@ Item {
           NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
         }
 
-        Text {
+        OutlinedText {
           id: toastText
           anchors.centerIn: parent
           text: root.toastMessage
           font.family: Style.font.family
-          font.pixelSize: 12
+          font.pixelSize: root.scaled(12)
           font.bold: true
-          color: Commons.Color.menu.selectedText
+          color: root.themeAccent
         }
+      }
+
+      // Header Dithered Scrim (Bayer ordered dissolve for ambient contrast)
+      DitheredScrim {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: root.scaled(115)
+        direction: 0.0
+        cellSize: root.bgCellSize
+        ditherIntensity: root.bgDither ? 1.0 : 0.0
+        color: Commons.Color.menu.background
+        maxAlpha: root.bgImageEnabled ? 0.96 : 0.0
+        minAlpha: 0.0
+        solidSpan: 0.45
+        opacity: header.opacity
+        visible: root.bgImageEnabled
       }
 
       // ---------------------------------------------------- Header (Scaled 1.25x)
@@ -712,36 +1085,83 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        height: 64
-        anchors.leftMargin: 24
-        anchors.rightMargin: 24
-        opacity: (root.isTypingActive && !headerHover.containsMouse) ? 0.0 : 1.0
+        height: root.scaled(64)
+        anchors.leftMargin: root.scaled(24)
+        anchors.rightMargin: root.scaled(24)
+        opacity: (root.isTypingActive && !headerDragArea.containsMouse) ? 0.0 : 1.0
 
         Behavior on opacity {
           NumberAnimation { duration: 240; easing.type: Easing.OutCubic }
         }
 
         MouseArea {
-          id: headerHover
+          id: headerDragArea
           anchors.fill: parent
           hoverEnabled: true
-          acceptedButtons: Qt.NoButton
+          acceptedButtons: Qt.LeftButton
+          cursorShape: root.isMaximized ? Qt.ArrowCursor : (root.isDraggingWindow ? Qt.ClosedHandCursor : Qt.OpenHandCursor)
+
+          property real startGlobalX: 0
+          property real startGlobalY: 0
+          property real startOffsetX: 0
+          property real startOffsetY: 0
+
+          onPressed: function(mouse) {
+            if (root.isMaximized || !overlayContainer) return
+            var p = mapToItem(overlayContainer, mouse.x, mouse.y)
+            startGlobalX = p.x
+            startGlobalY = p.y
+            startOffsetX = root.cardOffsetX
+            startOffsetY = root.cardOffsetY
+            root.isDraggingWindow = true
+          }
+
+          onPositionChanged: function(mouse) {
+            if (!root.isDraggingWindow || root.isMaximized || !overlayContainer) return
+            var p = mapToItem(overlayContainer, mouse.x, mouse.y)
+            var dx = p.x - startGlobalX
+            var dy = p.y - startGlobalY
+
+            var maxOffsetX = Math.max(0, (overlayContainer.width - card.width) / 2 - 16)
+            var maxOffsetY = Math.max(0, (overlayContainer.height - card.height) / 2 - 16)
+
+            root.cardOffsetX = Math.max(-maxOffsetX, Math.min(maxOffsetX, startOffsetX + dx))
+            root.cardOffsetY = Math.max(-maxOffsetY, Math.min(maxOffsetY, startOffsetY + dy))
+          }
+
+          onReleased: function() {
+            root.isDraggingWindow = false
+            Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+          }
+
+          onCanceled: function() {
+            root.isDraggingWindow = false
+            Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+          }
+
+          onDoubleClicked: function() {
+            root.toggleMaximize()
+          }
         }
 
         // Top-Left: Back button
         Rectangle {
           id: backBtn
-          width: 36
-          height: 36
-          radius: 8
+          width: root.scaled(36)
+          height: root.scaled(36)
+          radius: root.scaled(8)
           anchors.left: parent.left
           anchors.verticalCenter: parent.verticalCenter
-          color: backMouse.containsMouse ? Util.alpha(Commons.Color.menu.text, 0.1) : "transparent"
+          color: backMouse.containsMouse
+            ? Util.alpha(Commons.Color.menu.background, 0.95)
+            : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.8) : Util.alpha(Commons.Color.menu.text, 0.04))
+          border.color: Util.alpha(Commons.Color.menu.text, 0.18)
+          border.width: 1
 
-          Text {
+          OutlinedText {
             anchors.centerIn: parent
             text: "←"
-            font.pixelSize: 18
+            font.pixelSize: root.scaled(18)
             color: Util.alpha(Commons.Color.menu.text, 0.7)
           }
 
@@ -751,7 +1171,7 @@ Item {
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: {
-              if (root.activeView === "stats") root.activeView = "test"
+              if (root.activeView === "stats" || root.activeView === "settings") root.activeView = "test"
               else root.close()
             }
           }
@@ -762,44 +1182,48 @@ Item {
           id: topCenterRow
           anchors.horizontalCenter: parent.horizontalCenter
           anchors.verticalCenter: parent.verticalCenter
-          spacing: 8
+          spacing: root.scaled(8)
 
           // Compact Unified Mode Pill
           Rectangle {
             id: modePill
-            height: 34
-            width: modePillContent.width + 24
-            radius: 8
-            color: modeMouse.containsMouse ? Util.alpha(Commons.Color.menu.text, 0.08) : Util.alpha(Commons.Color.menu.text, 0.04)
-            border.color: Util.alpha(Commons.Color.menu.text, 0.1)
+            height: root.scaled(34)
+            width: modePillContent.width + root.scaled(24)
+            radius: root.scaled(8)
+            color: modeMouse.containsMouse
+              ? Util.alpha(Commons.Color.menu.background, 0.95)
+              : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.82) : Util.alpha(Commons.Color.menu.text, 0.04))
+            border.color: modeMouse.containsMouse
+              ? Util.alpha(root.themeAccent, 0.4)
+              : Util.alpha(Commons.Color.menu.text, 0.2)
             border.width: 1
 
             Row {
               id: modePillContent
               anchors.centerIn: parent
-              spacing: 8
+              spacing: root.scaled(8)
 
               // Mode name
-              Text {
+              OutlinedText {
                 anchors.verticalCenter: parent.verticalCenter
                 text: root.mode === "time" ? "Time" : (root.mode === "words" ? "Words" : "Quote")
                 font.family: Style.font.family
-                font.pixelSize: 13
+                font.pixelSize: root.scaled(13)
                 font.bold: true
                 color: Commons.Color.menu.text
               }
 
               // Divider dot
-              Text {
+              OutlinedText {
                 anchors.verticalCenter: parent.verticalCenter
                 text: "·"
                 font.family: Style.font.family
-                font.pixelSize: 12
+                font.pixelSize: root.scaled(12)
                 color: Util.alpha(Commons.Color.menu.text, 0.3)
               }
 
               // Active option (15s / 25w / short)
-              Text {
+              OutlinedText {
                 anchors.verticalCenter: parent.verticalCenter
                 text: {
                   if (root.mode === "time") return root.duration + "s ▾"
@@ -807,29 +1231,29 @@ Item {
                   return root.quoteLength + " ▾"
                 }
                 font.family: Style.font.family
-                font.pixelSize: 12
-                color: Commons.Color.menu.selectedText
+                font.pixelSize: root.scaled(12)
+                color: root.themeAccent
               }
 
               // Language toggle chip (ES / EN)
               Rectangle {
                 visible: root.mode !== "quote"
-                height: 20
-                width: langLabel.contentWidth + 10
-                radius: 4
+                height: root.scaled(20)
+                width: langLabel.contentWidth + root.scaled(10)
+                radius: root.scaled(4)
                 anchors.verticalCenter: parent.verticalCenter
-                color: root.language === "spanish" ? Util.alpha(Commons.Color.menu.selectedText, 0.2) : "transparent"
-                border.color: root.language === "spanish" ? Util.alpha(Commons.Color.menu.selectedText, 0.4) : Util.alpha(Commons.Color.menu.text, 0.15)
+                color: root.language === "spanish" ? Util.alpha(root.themeAccent, 0.2) : "transparent"
+                border.color: root.language === "spanish" ? Util.alpha(root.themeAccent, 0.4) : Util.alpha(Commons.Color.menu.text, 0.15)
                 border.width: 1
 
-                Text {
+                OutlinedText {
                   id: langLabel
                   anchors.centerIn: parent
                   text: root.language === "spanish" ? "ES" : "EN"
                   font.family: Style.font.family
-                  font.pixelSize: 10
+                  font.pixelSize: root.scaled(10)
                   font.bold: true
-                  color: root.language === "spanish" ? Commons.Color.menu.selectedText : Util.alpha(Commons.Color.menu.text, 0.45)
+                  color: root.language === "spanish" ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.45)
                 }
 
                 MouseArea {
@@ -841,22 +1265,22 @@ Item {
 
               // Punctuation toggle chip
               Rectangle {
-                height: 20
-                width: puncLabel.contentWidth + 10
-                radius: 4
+                height: root.scaled(20)
+                width: puncLabel.contentWidth + root.scaled(10)
+                radius: root.scaled(4)
                 anchors.verticalCenter: parent.verticalCenter
-                color: root.punctuation ? Util.alpha(Commons.Color.menu.selectedText, 0.2) : "transparent"
-                border.color: root.punctuation ? Util.alpha(Commons.Color.menu.selectedText, 0.4) : "transparent"
+                color: root.punctuation ? Util.alpha(root.themeAccent, 0.2) : "transparent"
+                border.color: root.punctuation ? Util.alpha(root.themeAccent, 0.4) : "transparent"
                 border.width: 1
 
-                Text {
+                OutlinedText {
                   id: puncLabel
                   anchors.centerIn: parent
                   text: "@ punc"
                   font.family: Style.font.family
-                  font.pixelSize: 10
+                  font.pixelSize: root.scaled(10)
                   font.bold: root.punctuation
-                  color: root.punctuation ? Commons.Color.menu.selectedText : Util.alpha(Commons.Color.menu.text, 0.35)
+                  color: root.punctuation ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.35)
                 }
 
                 MouseArea {
@@ -868,22 +1292,22 @@ Item {
 
               // Numbers toggle chip
               Rectangle {
-                height: 20
-                width: numLabel.contentWidth + 10
-                radius: 4
+                height: root.scaled(20)
+                width: numLabel.contentWidth + root.scaled(10)
+                radius: root.scaled(4)
                 anchors.verticalCenter: parent.verticalCenter
-                color: root.numbers ? Util.alpha(Commons.Color.menu.selectedText, 0.2) : "transparent"
-                border.color: root.numbers ? Util.alpha(Commons.Color.menu.selectedText, 0.4) : "transparent"
+                color: root.numbers ? Util.alpha(root.themeAccent, 0.2) : "transparent"
+                border.color: root.numbers ? Util.alpha(root.themeAccent, 0.4) : "transparent"
                 border.width: 1
 
-                Text {
+                OutlinedText {
                   id: numLabel
                   anchors.centerIn: parent
                   text: "# 123"
                   font.family: Style.font.family
-                  font.pixelSize: 10
+                  font.pixelSize: root.scaled(10)
                   font.bold: root.numbers
-                  color: root.numbers ? Commons.Color.menu.selectedText : Util.alpha(Commons.Color.menu.text, 0.35)
+                  color: root.numbers ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.35)
                 }
 
                 MouseArea {
@@ -913,23 +1337,23 @@ Item {
           // Stats Pill Button
           Rectangle {
             id: statsPillBtn
-            height: 34
-            width: statsPillText.contentWidth + 20
-            radius: 8
+            height: root.scaled(34)
+            width: statsPillText.contentWidth + root.scaled(20)
+            radius: root.scaled(8)
             color: root.activeView === "stats"
               ? Commons.Color.menu.selectedBackground
-              : (statsMouse.containsMouse ? Util.alpha(Commons.Color.menu.text, 0.08) : Util.alpha(Commons.Color.menu.text, 0.04))
-            border.color: Util.alpha(Commons.Color.menu.text, 0.1)
+              : (statsMouse.containsMouse ? Util.alpha(Commons.Color.menu.background, 0.95) : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.82) : Util.alpha(Commons.Color.menu.text, 0.04)))
+            border.color: root.activeView === "stats" ? Util.alpha(root.themeAccent, 0.5) : Util.alpha(Commons.Color.menu.text, 0.2)
             border.width: 1
 
-            Text {
+            OutlinedText {
               id: statsPillText
               anchors.centerIn: parent
               text: "Stats"
               font.family: Style.font.family
-              font.pixelSize: 12
+              font.pixelSize: root.scaled(12)
               font.bold: root.activeView === "stats"
-              color: root.activeView === "stats" ? Commons.Color.menu.selectedText : Util.alpha(Commons.Color.menu.text, 0.6)
+              color: root.activeView === "stats" ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.6)
             }
 
             MouseArea {
@@ -946,13 +1370,13 @@ Item {
         Row {
           anchors.right: parent.right
           anchors.verticalCenter: parent.verticalCenter
-          spacing: 16
+          spacing: root.scaled(16)
 
-          Text {
+          OutlinedText {
             anchors.verticalCenter: parent.verticalCenter
             text: root.soundTheme === "off" ? "sound: off" : root.soundTheme
             font.family: Style.font.family
-            font.pixelSize: 13
+            font.pixelSize: root.scaled(13)
             color: root.soundTheme !== "off" ? Util.alpha(Commons.Color.menu.text, 0.5) : Util.alpha(Commons.Color.menu.text, 0.25)
             Behavior on color { ColorAnimation { duration: 100 } }
 
@@ -964,48 +1388,122 @@ Item {
           }
 
           // Live Timer / Stopwatch (Test View)
-          Text {
+          OutlinedText {
             visible: root.activeView === "test"
             anchors.verticalCenter: parent.verticalCenter
             text: root.mode === "time"
               ? root.stats.timeLeft + "s"
               : (root.stats.status === "idle" ? "0.0s" : root.stats.elapsedSeconds + "s")
             font.family: Style.font.family
-            font.pixelSize: 18
+            font.pixelSize: root.scaled(18)
             font.bold: true
-            color: (root.mode === "time" && root.stats.timeLeft <= 3) ? "#e06c75" : Commons.Color.menu.selectedText
+            color: (root.mode === "time" && root.stats.timeLeft <= 3) ? "#e06c75" : root.themeAccent
           }
 
-          Text {
+          OutlinedText {
             visible: root.activeView === "test"
             anchors.verticalCenter: parent.verticalCenter
             text: root.stats.wpm + " wpm"
             font.family: Style.font.family
-            font.pixelSize: 13
+            font.pixelSize: root.scaled(13)
             color: Util.alpha(Commons.Color.menu.text, 0.4)
           }
 
-          Text {
+          OutlinedText {
             visible: root.activeView === "test"
             anchors.verticalCenter: parent.verticalCenter
             text: root.stats.accuracy + "%"
             font.family: Style.font.family
-            font.pixelSize: 13
+            font.pixelSize: root.scaled(13)
             color: Util.alpha(Commons.Color.menu.text, 0.4)
+          }
+
+          Rectangle {
+            width: 1
+            height: root.scaled(14)
+            anchors.verticalCenter: parent.verticalCenter
+            color: Util.alpha(Commons.Color.menu.text, 0.12)
+          }
+
+          // Maximize / Focus mode button (⤢ / ⤡)
+          Rectangle {
+            id: maximizeBtn
+            width: root.scaled(28)
+            height: root.scaled(28)
+            radius: root.scaled(6)
+            anchors.verticalCenter: parent.verticalCenter
+            color: maximizeMouse.containsMouse
+              ? Util.alpha(Commons.Color.menu.background, 0.95)
+              : (root.isMaximized
+                  ? Util.alpha(root.themeAccent, 0.2)
+                  : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.75) : "transparent"))
+            border.color: root.isMaximized ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.18)
+            border.width: 1
+
+            OutlinedText {
+              anchors.centerIn: parent
+              text: root.isMaximized ? "⤡" : "⤢"
+              font.family: Style.font.family
+              font.pixelSize: root.scaled(13)
+              font.bold: true
+              color: (maximizeMouse.containsMouse || root.isMaximized) ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.5)
+            }
+
+            MouseArea {
+              id: maximizeMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                root.toggleMaximize()
+                keyCatcher.forceActiveFocus()
+              }
+            }
+          }
+
+          // Close button (✕)
+          Rectangle {
+            id: closeBtn
+            width: root.scaled(28)
+            height: root.scaled(28)
+            radius: root.scaled(6)
+            anchors.verticalCenter: parent.verticalCenter
+            color: closeMouse.containsMouse
+              ? Util.alpha(Commons.Color.menu.background, 0.95)
+              : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.75) : "transparent")
+            border.color: Util.alpha(Commons.Color.menu.text, 0.18)
+            border.width: 1
+
+            OutlinedText {
+              anchors.centerIn: parent
+              text: "✕"
+              font.family: Style.font.family
+              font.pixelSize: root.scaled(13)
+              font.bold: true
+              color: closeMouse.containsMouse ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.5)
+            }
+
+            MouseArea {
+              id: closeMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.close()
+            }
           }
         }
       }
 
-      // Hairline separator
+      // Hairline separator (hidden when wallpaper is active)
       Rectangle {
         id: sep
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: header.bottom
-        height: 1
-        color: Util.alpha(Commons.Color.menu.text, 0.08)
+        height: visible ? 1 : 0
+        color: Util.alpha(Commons.Color.menu.text, 0.14)
         opacity: header.opacity
-        visible: !(root.bgImageEnabled && root.bgImagePath !== "" && root.bgVignette)
+        visible: !(root.bgImageEnabled && root.bgImagePath !== "")
         Behavior on opacity {
           NumberAnimation { duration: 240; easing.type: Easing.OutCubic }
         }
@@ -1058,8 +1556,15 @@ Item {
               id: centeredTypingBox
               z: 1
               anchors.centerIn: parent
-              width: Math.min(960, parent.width)
-              height: 310
+              width: Math.min(root.isMaximized ? 1240 : 960, parent.width)
+              height: root.isMaximized ? Math.min(500, parent.height - 40) : Math.min(parent.height - 20, root.scaled(310))
+
+              Behavior on width {
+                NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+              }
+              Behavior on height {
+                NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+              }
 
               Flickable {
                 id: wordsFlickable
@@ -1067,7 +1572,7 @@ Item {
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.bottom: quoteAuthorRow.top
-                anchors.bottomMargin: 20
+                anchors.bottomMargin: root.scaled(20)
                 clip: true
                 contentWidth: width
                 contentHeight: flowWrapper.height
@@ -1081,10 +1586,10 @@ Item {
                   // Signature Raycast / Monkeytype Smooth Caret (Scaled 1.25x)
                   Rectangle {
                     id: smoothCaret
-                    width: 3.2
-                    height: 35
-                    radius: 1.6
-                    color: Commons.Color.menu.selectedText
+                    width: Math.max(3.5, root.scaled(3.2))
+                    height: root.scaled(35)
+                    radius: root.scaled(1.6)
+                    color: root.themeAccent
                     visible: !root.stats.isFinished && root.session && root.session.status !== "finished"
                     z: 10
 
@@ -1110,7 +1615,7 @@ Item {
                     anchors.top: parent.top
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    spacing: 16
+                    spacing: root.scaled(16)
 
                     Repeater {
                       id: wordsRepeater
@@ -1139,11 +1644,11 @@ Item {
 
                             readonly property var cData: wData ? wData.chars[index] : null
 
-                            Text {
+                            OutlinedText {
                               id: charText
                               text: charBox.cData ? charBox.cData.char : ""
                               font.family: Style.font.family
-                              font.pixelSize: 30
+                              font.pixelSize: root.scaled(30)
                               color: {
                                 root.sessionRevision
                                 if (!charBox.cData) return Util.alpha(Commons.Color.menu.text, 0.60)
@@ -1151,9 +1656,6 @@ Item {
                                 if (charBox.cData.state === "incorrect") return "#ff5555"
                                 return Util.alpha(Commons.Color.menu.text, 0.60)
                               }
-                              // Fine dark outline keeps glyphs readable over bright dithered clouds
-                              style: Text.Outline
-                              styleColor: "#101216"
                             }
                           }
                         }
@@ -1165,18 +1667,15 @@ Item {
                             return (wData && wData.extra) ? wData.extra.length : 0
                           }
 
-                          delegate: Text {
+                          delegate: OutlinedText {
                             text: {
                               root.sessionRevision
                               return (wData && wData.extra) ? wData.extra[index] : ""
                             }
                             font.family: Style.font.family
-                            font.pixelSize: 30
+                            font.pixelSize: root.scaled(30)
                             font.bold: true
                             color: "#e06c75"
-                            // Fine dark outline keeps glyphs readable over bright dithered clouds
-                            style: Text.Outline
-                            styleColor: "#101216"
                           }
                         }
 
@@ -1186,11 +1685,11 @@ Item {
                           width: spaceText.contentWidth
                           height: spaceText.contentHeight
 
-                          Text {
+                          OutlinedText {
                             id: spaceText
                             text: " "
                             font.family: Style.font.family
-                            font.pixelSize: 30
+                            font.pixelSize: root.scaled(30)
                           }
                         }
                       }
@@ -1205,13 +1704,13 @@ Item {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
-                height: 26
+                height: root.scaled(26)
                 visible: root.mode === "quote" && root.session && root.session.quote
 
-                Text {
+                OutlinedText {
                   text: root.session && root.session.quote ? "— " + root.session.quote.source : ""
                   font.family: Style.font.family
-                  font.pixelSize: 14
+                  font.pixelSize: root.scaled(14)
                   font.italic: true
                   color: Util.alpha(Commons.Color.menu.text, 0.55)
                 }
@@ -1239,80 +1738,80 @@ Item {
             Column {
               id: finishedColumn
               anchors.centerIn: parent
-              spacing: 16
+              spacing: root.scaled(16)
 
-            Text {
+            OutlinedText {
               anchors.horizontalCenter: parent.horizontalCenter
               text: root.stats.wpm
               font.family: Style.font.family
-              font.pixelSize: 115
+              font.pixelSize: root.scaled(115)
               font.bold: true
-              color: Commons.Color.menu.selectedText
+              color: root.themeAccent
             }
 
-            Text {
+            OutlinedText {
               anchors.horizontalCenter: parent.horizontalCenter
               text: "WORDS PER MINUTE"
               font.family: Style.font.family
-              font.pixelSize: 13
+              font.pixelSize: root.scaled(13)
               font.bold: true
               color: Util.alpha(Commons.Color.menu.text, 0.4)
             }
 
-            Text {
+            OutlinedText {
               anchors.horizontalCenter: parent.horizontalCenter
               visible: root.mode === "quote" && root.stats.quote
               text: root.stats.quote ? "— " + root.stats.quote.source : ""
               font.family: Style.font.family
-              font.pixelSize: 16
+              font.pixelSize: root.scaled(16)
               font.italic: true
               color: Util.alpha(Commons.Color.menu.text, 0.6)
             }
 
             Row {
               anchors.horizontalCenter: parent.horizontalCenter
-              spacing: 32
-              anchors.topMargin: 12
+              spacing: root.scaled(32)
+              anchors.topMargin: root.scaled(12)
 
-              Text {
+              OutlinedText {
                 text: root.stats.accuracy + "% accuracy"
                 font.family: Style.font.family
-                font.pixelSize: 18
+                font.pixelSize: root.scaled(18)
                 color: Commons.Color.menu.text
               }
 
-              Text {
+              OutlinedText {
                 text: "·"
                 color: Util.alpha(Commons.Color.menu.text, 0.3)
               }
 
-              Text {
+              OutlinedText {
                 text: root.stats.elapsedSeconds + "s time"
                 font.family: Style.font.family
-                font.pixelSize: 18
+                font.pixelSize: root.scaled(18)
                 color: Commons.Color.menu.text
               }
 
-              Text {
+              OutlinedText {
                 text: "·"
                 color: Util.alpha(Commons.Color.menu.text, 0.3)
               }
 
-              Text {
+              OutlinedText {
                 text: root.stats.rawWpm + " raw"
                 font.family: Style.font.family
-                font.pixelSize: 18
+                font.pixelSize: root.scaled(18)
                 color: Commons.Color.menu.text
               }
             }
 
-            Item { width: 1; height: 12 }
+            Item { width: 1; height: root.scaled(12) }
 
-            Text {
+            OutlinedText {
               anchors.horizontalCenter: parent.horizontalCenter
               text: "tab or enter to restart"
               font.family: Style.font.family
-              font.pixelSize: 13
+              font.pixelSize: root.scaled(13)
               color: Util.alpha(Commons.Color.menu.text, 0.35)
             }
           }
@@ -1332,7 +1831,7 @@ Item {
 
           Column {
             anchors.fill: parent
-            spacing: 20
+            spacing: root.scaled(20)
 
             // 1. Pure Typography Metrics (34px)
             Row {
@@ -1340,72 +1839,72 @@ Item {
 
               Column {
                 width: parent.width / 4
-                spacing: 3
-                Text {
+                spacing: root.scaled(3)
+                OutlinedText {
                   text: root.summary.bestWpm > 0 ? String(root.summary.bestWpm) : "—"
                   font.family: Style.font.family
-                  font.pixelSize: 34
+                  font.pixelSize: root.scaled(34)
                   font.bold: true
-                  color: Commons.Color.menu.selectedText
+                  color: root.themeAccent
                 }
-                Text {
+                OutlinedText {
                   text: "best wpm"
                   font.family: Style.font.family
-                  font.pixelSize: 12
+                  font.pixelSize: root.scaled(12)
                   color: Util.alpha(Commons.Color.menu.text, 0.4)
                 }
               }
 
               Column {
                 width: parent.width / 4
-                spacing: 3
-                Text {
+                spacing: root.scaled(3)
+                OutlinedText {
                   text: root.summary.avgWpm > 0 ? String(root.summary.avgWpm) : "—"
                   font.family: Style.font.family
-                  font.pixelSize: 34
+                  font.pixelSize: root.scaled(34)
                   font.bold: true
                   color: Commons.Color.menu.text
                 }
-                Text {
+                OutlinedText {
                   text: "avg wpm"
                   font.family: Style.font.family
-                  font.pixelSize: 12
+                  font.pixelSize: root.scaled(12)
                   color: Util.alpha(Commons.Color.menu.text, 0.4)
                 }
               }
 
               Column {
                 width: parent.width / 4
-                spacing: 3
-                Text {
+                spacing: root.scaled(3)
+                OutlinedText {
                   text: root.summary.avgAccuracy > 0 ? root.summary.avgAccuracy + "%" : "—"
                   font.family: Style.font.family
-                  font.pixelSize: 34
+                  font.pixelSize: root.scaled(34)
                   font.bold: true
                   color: Commons.Color.menu.text
                 }
-                Text {
+                OutlinedText {
                   text: "accuracy"
                   font.family: Style.font.family
-                  font.pixelSize: 12
+                  font.pixelSize: root.scaled(12)
                   color: Util.alpha(Commons.Color.menu.text, 0.4)
                 }
               }
 
               Column {
                 width: parent.width / 4
-                spacing: 3
-                Text {
+                spacing: root.scaled(3)
+                OutlinedText {
                   text: String(root.summary.totalTests)
                   font.family: Style.font.family
-                  font.pixelSize: 34
+                  font.pixelSize: root.scaled(34)
                   font.bold: true
                   color: Commons.Color.menu.text
                 }
-                Text {
+                OutlinedText {
                   text: "tests completed"
                   font.family: Style.font.family
-                  font.pixelSize: 12
+                  font.pixelSize: root.scaled(12)
                   color: Util.alpha(Commons.Color.menu.text, 0.4)
                 }
               }
@@ -1414,14 +1913,14 @@ Item {
             // 2. Wireframe Chart (Height 175px)
             Item {
               width: parent.width
-              height: 175
+              height: root.scaled(175)
 
-              Text {
+              OutlinedText {
                 anchors.centerIn: parent
                 visible: root.history.length < 2
                 text: root.history.length === 0 ? "no test data yet" : "complete 1 more test to draw curve"
                 font.family: Style.font.family
-                font.pixelSize: 13
+                font.pixelSize: root.scaled(13)
                 color: Util.alpha(Commons.Color.menu.text, 0.3)
               }
 
@@ -1526,12 +2025,12 @@ Item {
             // 3. Minimalist Clean Table of Recent Runs
             Column {
               width: parent.width
-              spacing: 8
+              spacing: root.scaled(8)
 
-              Text {
+              OutlinedText {
                 text: "recent"
                 font.family: Style.font.family
-                font.pixelSize: 11
+                font.pixelSize: root.scaled(11)
                 color: Util.alpha(Commons.Color.menu.text, 0.35)
               }
 
@@ -1540,45 +2039,45 @@ Item {
 
                 delegate: Item {
                   width: statsViewContainer.width
-                  height: 26
+                  height: root.scaled(26)
 
                   readonly property var hItem: root.history[index]
 
                   Row {
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 20
+                    spacing: root.scaled(20)
 
-                    Text {
+                    OutlinedText {
                       text: hItem.mode || "time"
                       font.family: Style.font.family
-                      font.pixelSize: 13
+                      font.pixelSize: root.scaled(13)
                       color: Util.alpha(Commons.Color.menu.text, 0.4)
-                      width: 46
+                      width: root.scaled(46)
                     }
 
-                    Text {
+                    OutlinedText {
                       text: hItem.wpm + " wpm"
                       font.family: Style.font.family
-                      font.pixelSize: 13
+                      font.pixelSize: root.scaled(13)
                       font.bold: true
                       color: Commons.Color.menu.text
-                      width: 64
+                      width: root.scaled(64)
                     }
 
-                    Text {
+                    OutlinedText {
                       text: hItem.accuracy + "%"
                       font.family: Style.font.family
-                      font.pixelSize: 13
+                      font.pixelSize: root.scaled(13)
                       color: Util.alpha(Commons.Color.menu.text, 0.5)
-                      width: 44
+                      width: root.scaled(44)
                     }
 
-                    Text {
+                    OutlinedText {
                       visible: hItem.quoteSource && hItem.quoteSource.length > 0
                       text: hItem.quoteSource
                       font.family: Style.font.family
-                      font.pixelSize: 13
+                      font.pixelSize: root.scaled(13)
                       font.italic: true
                       color: Util.alpha(Commons.Color.menu.text, 0.3)
                       elide: Text.ElideRight
@@ -1586,12 +2085,12 @@ Item {
                     }
                   }
 
-                  Text {
+                  OutlinedText {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     text: hItem.elapsedSeconds + "s"
                     font.family: Style.font.family
-                    font.pixelSize: 13
+                    font.pixelSize: root.scaled(13)
                     color: Util.alpha(Commons.Color.menu.text, 0.3)
                   }
                 }
@@ -1599,6 +2098,108 @@ Item {
             }
           }
         }
+
+        // =================================== VIEW 3: SETTINGS PANEL
+        // Stateless: binds to root properties; writes go through
+        // settingsChanged -> setters -> saveSettings
+        SettingsPanel {
+          id: settingsPanel
+          open: root.activeView === "settings"
+          mode: root.mode
+          quoteLength: root.quoteLength
+          duration: root.duration
+          wordCount: root.wordCount
+          language: root.language
+          punctuation: root.punctuation
+          numbers: root.numbers
+          soundTheme: root.soundTheme
+          soundVolume: root.soundVolume
+          bgImageEnabled: root.bgImageEnabled
+          bgImagePath: root.bgImagePath
+          bgBlur: root.bgBlur
+          bgDither: root.bgDither
+          bgDitherIntensity: root.bgDitherIntensity
+          bgColorLevels: root.bgColorLevels
+          bgCellSize: root.bgCellSize
+          bgDim: root.bgDim
+          bgAdaptiveDim: root.bgAdaptiveDim
+          bgVignette: root.bgVignette
+          bgAdaptiveAccent: root.bgAdaptiveAccent
+          themeAccent: root.themeAccent
+
+          onSettingsChanged: function(key, value) {
+            if (key === "mode") root.setMode(value)
+            else if (key === "quoteLength") root.setQuoteLength(value)
+            else if (key === "duration") root.setDuration(Number(value))
+            else if (key === "wordCount") root.setWordCount(Number(value))
+            else if (key === "language") root.setLanguage(value)
+            else if (key === "punctuation") {
+              if (root.punctuation !== value) {
+                root.punctuation = value
+                root.resetTest()
+              }
+            }
+            else if (key === "numbers") {
+              if (root.numbers !== value) {
+                root.numbers = value
+                root.resetTest()
+              }
+            }
+            else if (key === "soundTheme") {
+              root.soundTheme = value
+              root.lastSoundTime = 0
+              root.playKeySound()
+            }
+            else if (key === "soundVolume") root.soundVolume = value
+            else if (key === "bgImageEnabled") {
+              root.bgImageEnabled = value
+              root.showToast(root.bgImageEnabled ? "Background: On" : "Background: Off")
+            }
+            else if (key === "bgImagePath") {
+              root.bgImagePath = value
+              if (value !== "") root.bgImageEnabled = true
+              root.showToast("Background set")
+            }
+            else if (key === "bgBlur") root.bgBlur = value
+            else if (key === "bgDither") {
+              root.bgDither = value
+              root.showToast(root.bgDither ? "Dither: On" : "Dither: Off")
+            }
+            else if (key === "bgDitherIntensity") root.bgDitherIntensity = value
+            else if (key === "bgColorLevels") root.bgColorLevels = value
+            else if (key === "bgCellSize") root.bgCellSize = value
+            else if (key === "bgDim") root.bgDim = value
+            else if (key === "bgAdaptiveDim") root.bgAdaptiveDim = value
+            else if (key === "bgVignette") {
+              root.bgVignette = value
+              root.showToast(root.bgVignette ? "Vignette: On" : "Vignette: Off")
+            }
+            else if (key === "bgAdaptiveAccent") {
+              root.bgAdaptiveAccent = value
+              root.showToast(root.bgAdaptiveAccent ? "Adaptive Accent: On" : "Adaptive Accent: Off")
+            }
+          }
+          onSettingsCommit: root.saveSettings()
+          onCloseRequested: root.activeView = "test"
+          onFocusReleased: keyCatcher.forceActiveFocus()
+        }
+      }
+
+      // Footer Dithered Scrim (Bayer ordered dissolve for ambient contrast)
+      DitheredScrim {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: 90
+        direction: 1.0
+        cellSize: root.bgCellSize
+        ditherIntensity: root.bgDither ? 1.0 : 0.0
+        color: Commons.Color.menu.background
+        maxAlpha: root.bgImageEnabled ? 0.96 : 0.0
+        minAlpha: 0.0
+        solidSpan: 0.45
+        opacity: footer.opacity
+        visible: root.bgImageEnabled
       }
 
       // ---------------------------------------------------- Footer (Scaled 1.25x)
@@ -1607,7 +2208,7 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        height: 48
+        height: root.scaled(48)
         color: (root.bgImageEnabled && root.bgImagePath !== "") ? "transparent" : Util.alpha(Commons.Color.menu.text, 0.02)
         opacity: (root.isTypingActive && !footerHover.containsMouse) ? 0.0 : 1.0
 
@@ -1627,45 +2228,56 @@ Item {
           anchors.right: parent.right
           anchors.top: parent.top
           height: 1
-          color: Util.alpha(Commons.Color.menu.text, 0.06)
-          visible: !(root.bgImageEnabled && root.bgImagePath !== "" && root.bgVignette)
+          color: Util.alpha(Commons.Color.menu.text, 0.12)
+          visible: !(root.bgImageEnabled && root.bgImagePath !== "")
         }
 
         // Left: Omarchy glyph + Branding + subtle shortcut hint
         Row {
           anchors.left: parent.left
-          anchors.leftMargin: 24
+          anchors.leftMargin: root.scaled(24)
           anchors.verticalCenter: parent.verticalCenter
-          spacing: 12
+          spacing: root.scaled(12)
 
-          Text {
+          Rectangle {
+            width: root.scaled(26)
+            height: root.scaled(26)
+            radius: root.scaled(6)
+            color: Util.alpha(root.themeAccent, 0.12)
+            border.color: Util.alpha(root.themeAccent, 0.35)
+            border.width: 1
             anchors.verticalCenter: parent.verticalCenter
-            text: ""
-            font.family: "omarchy"
-            font.pixelSize: 16
-            color: Commons.Color.menu.selectedText
+
+            OutlinedText {
+              anchors.centerIn: parent
+              text: ""
+              font.family: "omarchy"
+              font.pixelSize: root.scaled(14)
+              color: root.themeAccent
+            }
           }
 
-          Text {
+          OutlinedText {
             anchors.verticalCenter: parent.verticalCenter
             text: "Typing Practice"
             font.family: Style.font.family
-            font.pixelSize: 14
-            color: Util.alpha(Commons.Color.menu.text, 0.6)
+            font.pixelSize: root.scaled(14)
+            font.bold: true
+            color: Util.alpha(Commons.Color.menu.text, 0.75)
           }
 
           Rectangle {
             width: 1
-            height: 12
+            height: root.scaled(12)
             anchors.verticalCenter: parent.verticalCenter
             color: Util.alpha(Commons.Color.menu.text, 0.1)
           }
 
-          Text {
+          OutlinedText {
             anchors.verticalCenter: parent.verticalCenter
-            text: "F1 mode · F2 option · F3 sound · F4 stats · ^I lang"
+            text: "F1 mode · F2 option · F3 sound · F4 stats · F11 focus · ^I lang · ^, settings"
             font.family: Style.font.family
-            font.pixelSize: 11
+            font.pixelSize: root.scaled(11)
             color: Util.alpha(Commons.Color.menu.text, 0.3)
           }
         }
@@ -1673,82 +2285,124 @@ Item {
         // Right: Key badges (Only essential control actions: Restart & Close)
         Row {
           anchors.right: parent.right
-          anchors.rightMargin: 24
+          anchors.rightMargin: root.scaled(24)
           anchors.verticalCenter: parent.verticalCenter
-          spacing: 14
+          spacing: root.scaled(14)
 
           // Restart Hint
-          Row {
+          Item {
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 6
+            width: restartHintRow.width
+            height: root.scaled(26)
 
-            Text {
+            Row {
+              id: restartHintRow
               anchors.verticalCenter: parent.verticalCenter
-              text: "Restart"
-              font.family: Style.font.family
-              font.pixelSize: 12
-              color: Util.alpha(Commons.Color.menu.text, 0.5)
+              spacing: root.scaled(6)
+
+              OutlinedText {
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Restart"
+                font.family: Style.font.family
+                font.pixelSize: root.scaled(12)
+                color: restartMouse.containsMouse ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.5)
+              }
+
+              Rectangle {
+                width: root.scaled(36)
+                height: root.scaled(22)
+                radius: root.scaled(5)
+                color: restartMouse.containsMouse
+                  ? Util.alpha(root.themeAccent, 0.22)
+                  : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.85) : Util.alpha(Commons.Color.menu.text, 0.08))
+                border.color: restartMouse.containsMouse
+                  ? root.themeAccent
+                  : Util.alpha(Commons.Color.menu.text, 0.24)
+                border.width: 1
+
+                OutlinedText {
+                  anchors.centerIn: parent
+                  text: "Tab"
+                  font.family: Style.font.family
+                  font.pixelSize: root.scaled(11)
+                  font.bold: true
+                  color: Commons.Color.menu.text
+                }
+              }
             }
 
-            Rectangle {
-              width: 36
-              height: 22
-              radius: 5
-              color: Util.alpha(Commons.Color.menu.text, 0.08)
-              border.color: Util.alpha(Commons.Color.menu.text, 0.15)
-              border.width: 1
-
-              Text {
-                anchors.centerIn: parent
-                text: "Tab"
-                font.family: Style.font.family
-                font.pixelSize: 11
-                font.bold: true
-                color: Commons.Color.menu.text
+            MouseArea {
+              id: restartMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                root.resetTest()
+                Qt.callLater(function() { keyCatcher.forceActiveFocus() })
               }
             }
           }
 
           Rectangle {
             width: 1
-            height: 14
+            height: root.scaled(14)
             anchors.verticalCenter: parent.verticalCenter
             color: Util.alpha(Commons.Color.menu.text, 0.12)
           }
 
           // Close Hint
-          Row {
+          Item {
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 6
+            width: closeHintRow.width
+            height: root.scaled(26)
 
-            Text {
+            Row {
+              id: closeHintRow
               anchors.verticalCenter: parent.verticalCenter
-              text: "Close"
-              font.family: Style.font.family
-              font.pixelSize: 12
-              color: Util.alpha(Commons.Color.menu.text, 0.5)
+              spacing: root.scaled(6)
+
+              OutlinedText {
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Close"
+                font.family: Style.font.family
+                font.pixelSize: root.scaled(12)
+                color: closeFooterMouse.containsMouse ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.5)
+              }
+
+              Rectangle {
+                width: root.scaled(36)
+                height: root.scaled(22)
+                radius: root.scaled(5)
+                color: closeFooterMouse.containsMouse
+                  ? Util.alpha(root.themeAccent, 0.22)
+                  : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.85) : Util.alpha(Commons.Color.menu.text, 0.08))
+                border.color: closeFooterMouse.containsMouse
+                  ? root.themeAccent
+                  : Util.alpha(Commons.Color.menu.text, 0.24)
+                border.width: 1
+
+                OutlinedText {
+                  anchors.centerIn: parent
+                  text: "Esc"
+                  font.family: Style.font.family
+                  font.pixelSize: root.scaled(11)
+                  font.bold: true
+                  color: Commons.Color.menu.text
+                }
+              }
             }
 
-            Rectangle {
-              width: 36
-              height: 22
-              radius: 5
-              color: Util.alpha(Commons.Color.menu.text, 0.08)
-              border.color: Util.alpha(Commons.Color.menu.text, 0.15)
-              border.width: 1
-
-              Text {
-                anchors.centerIn: parent
-                text: "Esc"
-                font.family: Style.font.family
-                font.pixelSize: 11
-                font.bold: true
-                color: Commons.Color.menu.text
-              }
+            MouseArea {
+              id: closeFooterMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.close()
             }
           }
         }
       }
     }
   }
+}
 }

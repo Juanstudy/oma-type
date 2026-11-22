@@ -19,7 +19,8 @@ var DEFAULT_SETTINGS = {
   bgCellSize: 2,
   bgAdaptiveDim: 0.65,
   bgDim: 0.4,
-  bgVignette: false
+  bgVignette: false,
+  bgAdaptiveAccent: true
 };
 
 var VALID_SOUND_THEMES = ["thock", "cream", "topre", "clicky", "typewriter", "off"];
@@ -97,6 +98,9 @@ function parseSettings(jsonText) {
     }
     if (typeof parsed.bgVignette === "boolean") {
       s.bgVignette = parsed.bgVignette;
+    }
+    if (typeof parsed.bgAdaptiveAccent === "boolean") {
+      s.bgAdaptiveAccent = parsed.bgAdaptiveAccent;
     }
   } catch (e) {
     return s;

@@ -19,3 +19,6 @@ mkdir -p "$REPO_DIR/shaders"
 
 "$QSB_BIN" --qt6 --batchable "$REPO_DIR/shaders/dither.frag" -o "$REPO_DIR/shaders/dither.frag.qsb"
 echo "Compiled: $REPO_DIR/shaders/dither.frag.qsb"
+
+"$QSB_BIN" --qt6 --batchable "$REPO_DIR/shaders/dither_scrim.frag" -o "$REPO_DIR/shaders/dither_scrim.frag.qsb"
+echo "Compiled: $REPO_DIR/shaders/dither_scrim.frag.qsb"

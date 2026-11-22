@@ -23,6 +23,7 @@ test("Settings: getDefaultSettings returns safe default values", () => {
   assert.equal(defaults.bgAdaptiveDim, 0.65);
   assert.equal(defaults.bgDim, 0.4);
   assert.equal(defaults.bgVignette, false);
+  assert.equal(defaults.bgAdaptiveAccent, true);
 });
 
 test("Settings: parseSettings handles empty or corrupted JSON gracefully", () => {
@@ -91,7 +92,8 @@ test("Settings: parseSettings validates and sanitizes input properties", () => {
     bgCellSize: 4,
     bgAdaptiveDim: 0.9,
     bgDim: 0.75,
-    bgVignette: false
+    bgVignette: false,
+    bgAdaptiveAccent: false
   }));
   assert.equal(bgCustom.bgImageEnabled, true);
   assert.equal(bgCustom.bgImagePath, "/home/user/wallpaper.jpg");
@@ -103,6 +105,7 @@ test("Settings: parseSettings validates and sanitizes input properties", () => {
   assert.equal(bgCustom.bgAdaptiveDim, 0.9);
   assert.equal(bgCustom.bgDim, 0.75);
   assert.equal(bgCustom.bgVignette, false);
+  assert.equal(bgCustom.bgAdaptiveAccent, false);
 
   // Invalid values should fallback to defaults
   const invalid = Settings.parseSettings(JSON.stringify({

@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "juancasanueva.oma-type",
+  "id": "juanstudy.oma-type",
   "name": "Oma Type",
-  "version": "0.1.0",
-  "author": "juan",
+  "version": "1.0.0",
+  "author": "Juan Pa",
   "description": "Minimalist Monkeytype-style typing speed test for Omarchy",
   "kinds": [
     "overlay"
@@ -11,5 +11,6 @@
   "keepLoaded": true,
   "entryPoints": {
     "overlay": "TypingOverlay.qml"
-  }
+  },
+  "license": "MIT"
 }
