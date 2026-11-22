@@ -1,0 +1,44 @@
+#!/bin/bash
+# bin/pick-image: Open a native graphical file picker to select a background image
+
+set -uo pipefail
+
+default_dir="${XDG_PICTURES_DIR:-$HOME/Pictures}"
+[[ -d "$default_dir" ]] || default_dir="$HOME"
+
+# 1. Try zenity (GTK / GNOME / modern Linux desktop file picker)
+if command -v zenity >/dev/null 2>&1; then
+  file=$(zenity --file-selection \
+    --title="Select Background Image" \
+    --file-filter="Images (*.png, *.jpg, *.jpeg, *.webp, *.svg) | *.png *.jpg *.jpeg *.webp *.svg *.gif *.bmp *.PNG *.JPG *.JPEG *.WEBP" \
+    --filename="$default_dir/" 2>/dev/null)
+  if [[ -n "${file:-}" && -f "$file" ]]; then
+    printf '%s\n' "$file"
+    exit 0
+  fi
+  exit 0
+fi
+
+# 2. Try kdialog (KDE / Qt file picker)
+if command -v kdialog >/dev/null 2>&1; then
+  file=$(kdialog --getopenfilename "$default_dir" \
+    "*.png *.jpg *.jpeg *.webp *.svg *.gif *.bmp|Image Files" \
+    --title "Select Background Image" 2>/dev/null)
+  if [[ -n "${file:-}" && -f "$file" ]]; then
+    printf '%s\n' "$file"
+    exit 0
+  fi
+  exit 0
+fi
+
+# 3. Try yad if installed
+if command -v yad >/dev/null 2>&1; then
+  file=$(yad --file --title="Select Background Image" --image-filter 2>/dev/null)
+  if [[ -n "${file:-}" && -f "$file" ]]; then
+    printf '%s\n' "$file"
+    exit 0
+  fi
+  exit 0
+fi
+
+exit 1

@@ -122,6 +122,13 @@ Item {
     var url = Qt.resolvedUrl("bin/extract-accent").toString()
     return url.indexOf("file://") === 0 ? decodeURIComponent(url.substring(7)) : url
   }
+  property bool isPickingFile: false
+  property string pickImageScript: {
+    var override = Quickshell.env("OMA_TYPE_PICK_IMAGE")
+    if (override && override.trim() !== "") return override.trim()
+    var url = Qt.resolvedUrl("bin/pick-image").toString()
+    return url.indexOf("file://") === 0 ? decodeURIComponent(url.substring(7)) : url
+  }
   property double lastSoundTime: 0
 
   property var history: []
@@ -504,6 +511,36 @@ Item {
     }
   }
 
+  Process {
+    id: filePickerProcess
+    command: []
+    stdout: StdioCollector {
+      id: filePickerOut
+      waitForEnd: true
+      onStreamFinished: {
+        var picked = String(filePickerOut.text || "").trim()
+        if (picked && picked !== "") {
+          root.bgImagePath = picked
+          root.bgImageEnabled = true
+          root.saveSettings()
+          root.showToast("Background set")
+        }
+      }
+    }
+    onRunningChanged: {
+      if (!running) {
+        root.isPickingFile = false
+      }
+    }
+  }
+
+  function openFilePicker() {
+    if (filePickerProcess.running) return
+    root.isPickingFile = true
+    filePickerProcess.command = [root.pickImageScript]
+    filePickerProcess.running = true
+  }
+
   function updateWallpaperAccent() {
     if (!root.bgImageEnabled || !root.bgAdaptiveAccent) {
       root.wallpaperAccentColor = ""
@@ -644,8 +681,8 @@ Item {
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "oma-type"
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: root.opened
+    WlrLayershell.layer: root.isPickingFile ? WlrLayer.Bottom : WlrLayer.Overlay
+    WlrLayershell.keyboardFocus: root.opened && !root.isPickingFile
       ? (root.focusPrimed ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive)
       : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
@@ -1187,6 +1224,7 @@ Item {
           // Compact Unified Mode Pill
           Rectangle {
             id: modePill
+            visible: root.activeView === "test"
             height: root.scaled(34)
             width: modePillContent.width + root.scaled(24)
             radius: root.scaled(8)
@@ -1362,6 +1400,39 @@ Item {
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
               onClicked: root.toggleStatsView()
+            }
+          }
+
+          // Settings Pill Button
+          Rectangle {
+            id: settingsPillBtn
+            height: 34
+            width: settingsPillText.contentWidth + 20
+            radius: 8
+            color: root.activeView === "settings"
+              ? Commons.Color.menu.selectedBackground
+              : (settingsMouse.containsMouse ? Util.alpha(Commons.Color.menu.background, 0.95) : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.82) : Util.alpha(Commons.Color.menu.text, 0.04)))
+            border.color: root.activeView === "settings" ? Util.alpha(root.themeAccent, 0.5) : Util.alpha(Commons.Color.menu.text, 0.2)
+            border.width: 1
+
+            OutlinedText {
+              id: settingsPillText
+              anchors.centerIn: parent
+              text: "Settings"
+              font.family: Style.font.family
+              font.pixelSize: 12
+              font.bold: root.activeView === "settings"
+              color: root.activeView === "settings" ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.6)
+            }
+
+            MouseArea {
+              id: settingsMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                root.activeView = (root.activeView === "settings") ? "test" : "settings"
+              }
             }
           }
         }
@@ -2182,6 +2253,7 @@ Item {
           onSettingsCommit: root.saveSettings()
           onCloseRequested: root.activeView = "test"
           onFocusReleased: keyCatcher.forceActiveFocus()
+          onOpenFilePickerRequested: root.openFilePicker()
         }
       }
 
@@ -2275,7 +2347,11 @@ Item {
 
           OutlinedText {
             anchors.verticalCenter: parent.verticalCenter
-            text: "F1 mode · F2 option · F3 sound · F4 stats · F11 focus · ^I lang · ^, settings"
+            text: root.activeView === "settings"
+              ? "esc / ^, to return to test · click options to adjust"
+              : (root.activeView === "stats"
+                ? "esc / enter to return to test"
+                : "F1 mode · F2 option · F3 sound · F4 stats · F11 focus · ^I lang · ^, settings")
             font.family: Style.font.family
             font.pixelSize: root.scaled(11)
             color: Util.alpha(Commons.Color.menu.text, 0.3)
