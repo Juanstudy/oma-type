@@ -63,6 +63,33 @@ Item {
   property real cardOffsetY: 0
   property bool isDraggingWindow: false
   property bool isResizingWindow: false
+  property real windowScale: 1.0
+  property real maximizedScale: 1.35
+  readonly property real targetUiScale: root.isMaximized ? root.maximizedScale : root.windowScale
+  property real uiScale: targetUiScale
+
+  Behavior on uiScale {
+    NumberAnimation {
+      id: uiScaleAnim
+      duration: 220
+      easing.type: Easing.OutCubic
+      onRunningChanged: {
+        if (!running && root.opened) {
+          Qt.callLater(root.updateCaretPosition)
+        }
+      }
+    }
+  }
+
+  onUiScaleChanged: {
+    if (root.opened) {
+      Qt.callLater(root.updateCaretPosition)
+    }
+  }
+
+  function scaled(val) {
+    return Math.round(val * root.uiScale)
+  }
 
   function toggleMaximize() {
     root.isMaximized = !root.isMaximized
@@ -101,10 +128,28 @@ Item {
   property var summary: ({ totalTests: 0, bestWpm: 0, avgWpm: 0, avgAccuracy: 0, totalSeconds: 0 })
   property bool recordedCurrent: false
 
+  // Dismiss Omarchy's "Launching Typing Practice..." feedback OSD.
+  // Because oma-type is a LayerShell overlay and not an XDG toplevel,
+  // omarchy's AppLibrary waits 15s for a toplevel window to appear before
+  // dismissing the OSD. This timer intercepts and closes it promptly.
+  Timer {
+    id: osdDismissTimer
+    interval: 200
+    repeat: true
+    property int attempts: 0
+    onTriggered: {
+      attempts++
+      Quickshell.execDetached(["omarchy-shell", "osd", "close"])
+      if (attempts >= 14) stop()
+    }
+  }
+
   function open() {
     root.opened = true
     root.focusPrimed = false
     focusPrimeTimer.restart()
+    osdDismissTimer.attempts = 0
+    osdDismissTimer.restart()
     root.activeView = "test"
     root.isMaximized = false
     root.cardCustomWidth = 1080
@@ -397,7 +442,7 @@ Item {
     smoothCaret.targetY = wItem.y + 2
 
     // Auto-scroll if word is below current viewport
-    var caretBottom = wItem.y + 44
+    var caretBottom = wItem.y + root.scaled(44)
     if (caretBottom > wordsFlickable.contentY + wordsFlickable.height) {
       wordsFlickable.contentY = Math.max(0, wItem.y - 12)
     } else if (wItem.y < wordsFlickable.contentY) {
@@ -520,6 +565,25 @@ Item {
     function resetPosition(): string {
       root.resetWindowPosition()
       return "ok"
+    }
+
+    function setScale(val: string): string {
+      var s = parseFloat(val)
+      if (!isNaN(s) && s >= 0.8 && s <= 2.5) {
+        if (root.isMaximized) {
+          root.maximizedScale = s
+        } else {
+          root.windowScale = s
+        }
+        root.showToast("Scale: " + Math.round(s * 100) + "%")
+        Qt.callLater(root.updateCaretPosition)
+        return "ok: " + s
+      }
+      return "invalid: " + val
+    }
+
+    function getScale(): string {
+      return String(root.uiScale)
     }
 
     function reset(): string {
@@ -973,11 +1037,11 @@ Item {
       Rectangle {
         id: hudToast
         anchors.top: parent.top
-        anchors.topMargin: 16
+        anchors.topMargin: root.scaled(16)
         anchors.horizontalCenter: parent.horizontalCenter
-        height: 32
-        width: toastText.contentWidth + 26
-        radius: 16
+        height: root.scaled(32)
+        width: toastText.contentWidth + root.scaled(26)
+        radius: root.scaled(16)
         color: Commons.Color.menu.selectedBackground
         opacity: root.toastVisible ? 1.0 : 0.0
         visible: opacity > 0.01
@@ -992,7 +1056,7 @@ Item {
           anchors.centerIn: parent
           text: root.toastMessage
           font.family: Style.font.family
-          font.pixelSize: 12
+          font.pixelSize: root.scaled(12)
           font.bold: true
           color: root.themeAccent
         }
@@ -1003,7 +1067,7 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        height: 115
+        height: root.scaled(115)
         direction: 0.0
         cellSize: root.bgCellSize
         ditherIntensity: root.bgDither ? 1.0 : 0.0
@@ -1021,9 +1085,9 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        height: 64
-        anchors.leftMargin: 24
-        anchors.rightMargin: 24
+        height: root.scaled(64)
+        anchors.leftMargin: root.scaled(24)
+        anchors.rightMargin: root.scaled(24)
         opacity: (root.isTypingActive && !headerDragArea.containsMouse) ? 0.0 : 1.0
 
         Behavior on opacity {
@@ -1083,9 +1147,9 @@ Item {
         // Top-Left: Back button
         Rectangle {
           id: backBtn
-          width: 36
-          height: 36
-          radius: 8
+          width: root.scaled(36)
+          height: root.scaled(36)
+          radius: root.scaled(8)
           anchors.left: parent.left
           anchors.verticalCenter: parent.verticalCenter
           color: backMouse.containsMouse
@@ -1097,7 +1161,7 @@ Item {
           OutlinedText {
             anchors.centerIn: parent
             text: "←"
-            font.pixelSize: 18
+            font.pixelSize: root.scaled(18)
             color: Util.alpha(Commons.Color.menu.text, 0.7)
           }
 
@@ -1118,14 +1182,14 @@ Item {
           id: topCenterRow
           anchors.horizontalCenter: parent.horizontalCenter
           anchors.verticalCenter: parent.verticalCenter
-          spacing: 8
+          spacing: root.scaled(8)
 
           // Compact Unified Mode Pill
           Rectangle {
             id: modePill
-            height: 34
-            width: modePillContent.width + 24
-            radius: 8
+            height: root.scaled(34)
+            width: modePillContent.width + root.scaled(24)
+            radius: root.scaled(8)
             color: modeMouse.containsMouse
               ? Util.alpha(Commons.Color.menu.background, 0.95)
               : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.82) : Util.alpha(Commons.Color.menu.text, 0.04))
@@ -1137,14 +1201,14 @@ Item {
             Row {
               id: modePillContent
               anchors.centerIn: parent
-              spacing: 8
+              spacing: root.scaled(8)
 
               // Mode name
               OutlinedText {
                 anchors.verticalCenter: parent.verticalCenter
                 text: root.mode === "time" ? "Time" : (root.mode === "words" ? "Words" : "Quote")
                 font.family: Style.font.family
-                font.pixelSize: 13
+                font.pixelSize: root.scaled(13)
                 font.bold: true
                 color: Commons.Color.menu.text
               }
@@ -1154,7 +1218,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 text: "·"
                 font.family: Style.font.family
-                font.pixelSize: 12
+                font.pixelSize: root.scaled(12)
                 color: Util.alpha(Commons.Color.menu.text, 0.3)
               }
 
@@ -1167,16 +1231,16 @@ Item {
                   return root.quoteLength + " ▾"
                 }
                 font.family: Style.font.family
-                font.pixelSize: 12
+                font.pixelSize: root.scaled(12)
                 color: root.themeAccent
               }
 
               // Language toggle chip (ES / EN)
               Rectangle {
                 visible: root.mode !== "quote"
-                height: 20
-                width: langLabel.contentWidth + 10
-                radius: 4
+                height: root.scaled(20)
+                width: langLabel.contentWidth + root.scaled(10)
+                radius: root.scaled(4)
                 anchors.verticalCenter: parent.verticalCenter
                 color: root.language === "spanish" ? Util.alpha(root.themeAccent, 0.2) : "transparent"
                 border.color: root.language === "spanish" ? Util.alpha(root.themeAccent, 0.4) : Util.alpha(Commons.Color.menu.text, 0.15)
@@ -1187,7 +1251,7 @@ Item {
                   anchors.centerIn: parent
                   text: root.language === "spanish" ? "ES" : "EN"
                   font.family: Style.font.family
-                  font.pixelSize: 10
+                  font.pixelSize: root.scaled(10)
                   font.bold: true
                   color: root.language === "spanish" ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.45)
                 }
@@ -1201,9 +1265,9 @@ Item {
 
               // Punctuation toggle chip
               Rectangle {
-                height: 20
-                width: puncLabel.contentWidth + 10
-                radius: 4
+                height: root.scaled(20)
+                width: puncLabel.contentWidth + root.scaled(10)
+                radius: root.scaled(4)
                 anchors.verticalCenter: parent.verticalCenter
                 color: root.punctuation ? Util.alpha(root.themeAccent, 0.2) : "transparent"
                 border.color: root.punctuation ? Util.alpha(root.themeAccent, 0.4) : "transparent"
@@ -1214,7 +1278,7 @@ Item {
                   anchors.centerIn: parent
                   text: "@ punc"
                   font.family: Style.font.family
-                  font.pixelSize: 10
+                  font.pixelSize: root.scaled(10)
                   font.bold: root.punctuation
                   color: root.punctuation ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.35)
                 }
@@ -1228,9 +1292,9 @@ Item {
 
               // Numbers toggle chip
               Rectangle {
-                height: 20
-                width: numLabel.contentWidth + 10
-                radius: 4
+                height: root.scaled(20)
+                width: numLabel.contentWidth + root.scaled(10)
+                radius: root.scaled(4)
                 anchors.verticalCenter: parent.verticalCenter
                 color: root.numbers ? Util.alpha(root.themeAccent, 0.2) : "transparent"
                 border.color: root.numbers ? Util.alpha(root.themeAccent, 0.4) : "transparent"
@@ -1241,7 +1305,7 @@ Item {
                   anchors.centerIn: parent
                   text: "# 123"
                   font.family: Style.font.family
-                  font.pixelSize: 10
+                  font.pixelSize: root.scaled(10)
                   font.bold: root.numbers
                   color: root.numbers ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.35)
                 }
@@ -1273,9 +1337,9 @@ Item {
           // Stats Pill Button
           Rectangle {
             id: statsPillBtn
-            height: 34
-            width: statsPillText.contentWidth + 20
-            radius: 8
+            height: root.scaled(34)
+            width: statsPillText.contentWidth + root.scaled(20)
+            radius: root.scaled(8)
             color: root.activeView === "stats"
               ? Commons.Color.menu.selectedBackground
               : (statsMouse.containsMouse ? Util.alpha(Commons.Color.menu.background, 0.95) : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.82) : Util.alpha(Commons.Color.menu.text, 0.04)))
@@ -1287,7 +1351,7 @@ Item {
               anchors.centerIn: parent
               text: "Stats"
               font.family: Style.font.family
-              font.pixelSize: 12
+              font.pixelSize: root.scaled(12)
               font.bold: root.activeView === "stats"
               color: root.activeView === "stats" ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.6)
             }
@@ -1306,13 +1370,13 @@ Item {
         Row {
           anchors.right: parent.right
           anchors.verticalCenter: parent.verticalCenter
-          spacing: 16
+          spacing: root.scaled(16)
 
           OutlinedText {
             anchors.verticalCenter: parent.verticalCenter
             text: root.soundTheme === "off" ? "sound: off" : root.soundTheme
             font.family: Style.font.family
-            font.pixelSize: 13
+            font.pixelSize: root.scaled(13)
             color: root.soundTheme !== "off" ? Util.alpha(Commons.Color.menu.text, 0.5) : Util.alpha(Commons.Color.menu.text, 0.25)
             Behavior on color { ColorAnimation { duration: 100 } }
 
@@ -1331,7 +1395,7 @@ Item {
               ? root.stats.timeLeft + "s"
               : (root.stats.status === "idle" ? "0.0s" : root.stats.elapsedSeconds + "s")
             font.family: Style.font.family
-            font.pixelSize: 18
+            font.pixelSize: root.scaled(18)
             font.bold: true
             color: (root.mode === "time" && root.stats.timeLeft <= 3) ? "#e06c75" : root.themeAccent
           }
@@ -1341,7 +1405,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text: root.stats.wpm + " wpm"
             font.family: Style.font.family
-            font.pixelSize: 13
+            font.pixelSize: root.scaled(13)
             color: Util.alpha(Commons.Color.menu.text, 0.4)
           }
 
@@ -1350,13 +1414,13 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text: root.stats.accuracy + "%"
             font.family: Style.font.family
-            font.pixelSize: 13
+            font.pixelSize: root.scaled(13)
             color: Util.alpha(Commons.Color.menu.text, 0.4)
           }
 
           Rectangle {
             width: 1
-            height: 14
+            height: root.scaled(14)
             anchors.verticalCenter: parent.verticalCenter
             color: Util.alpha(Commons.Color.menu.text, 0.12)
           }
@@ -1364,9 +1428,9 @@ Item {
           // Maximize / Focus mode button (⤢ / ⤡)
           Rectangle {
             id: maximizeBtn
-            width: 28
-            height: 28
-            radius: 6
+            width: root.scaled(28)
+            height: root.scaled(28)
+            radius: root.scaled(6)
             anchors.verticalCenter: parent.verticalCenter
             color: maximizeMouse.containsMouse
               ? Util.alpha(Commons.Color.menu.background, 0.95)
@@ -1380,7 +1444,7 @@ Item {
               anchors.centerIn: parent
               text: root.isMaximized ? "⤡" : "⤢"
               font.family: Style.font.family
-              font.pixelSize: 13
+              font.pixelSize: root.scaled(13)
               font.bold: true
               color: (maximizeMouse.containsMouse || root.isMaximized) ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.5)
             }
@@ -1400,9 +1464,9 @@ Item {
           // Close button (✕)
           Rectangle {
             id: closeBtn
-            width: 28
-            height: 28
-            radius: 6
+            width: root.scaled(28)
+            height: root.scaled(28)
+            radius: root.scaled(6)
             anchors.verticalCenter: parent.verticalCenter
             color: closeMouse.containsMouse
               ? Util.alpha(Commons.Color.menu.background, 0.95)
@@ -1414,7 +1478,7 @@ Item {
               anchors.centerIn: parent
               text: "✕"
               font.family: Style.font.family
-              font.pixelSize: 13
+              font.pixelSize: root.scaled(13)
               font.bold: true
               color: closeMouse.containsMouse ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.5)
             }
@@ -1430,16 +1494,16 @@ Item {
         }
       }
 
-      // Hairline separator
+      // Hairline separator (hidden when wallpaper is active)
       Rectangle {
         id: sep
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: header.bottom
-        height: 1
+        height: visible ? 1 : 0
         color: Util.alpha(Commons.Color.menu.text, 0.14)
         opacity: header.opacity
-        visible: !(root.bgImageEnabled && root.bgImagePath !== "" && root.bgVignette)
+        visible: !(root.bgImageEnabled && root.bgImagePath !== "")
         Behavior on opacity {
           NumberAnimation { duration: 240; easing.type: Easing.OutCubic }
         }
@@ -1492,8 +1556,15 @@ Item {
               id: centeredTypingBox
               z: 1
               anchors.centerIn: parent
-              width: Math.min(root.isMaximized ? 1160 : 960, parent.width)
-              height: root.isMaximized ? Math.min(460, parent.height - 40) : 310
+              width: Math.min(root.isMaximized ? 1240 : 960, parent.width)
+              height: root.isMaximized ? Math.min(500, parent.height - 40) : Math.min(parent.height - 20, root.scaled(310))
+
+              Behavior on width {
+                NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+              }
+              Behavior on height {
+                NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+              }
 
               Flickable {
                 id: wordsFlickable
@@ -1501,7 +1572,7 @@ Item {
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.bottom: quoteAuthorRow.top
-                anchors.bottomMargin: 20
+                anchors.bottomMargin: root.scaled(20)
                 clip: true
                 contentWidth: width
                 contentHeight: flowWrapper.height
@@ -1515,9 +1586,9 @@ Item {
                   // Signature Raycast / Monkeytype Smooth Caret (Scaled 1.25x)
                   Rectangle {
                     id: smoothCaret
-                    width: 3.2
-                    height: 35
-                    radius: 1.6
+                    width: Math.max(3.5, root.scaled(3.2))
+                    height: root.scaled(35)
+                    radius: root.scaled(1.6)
                     color: root.themeAccent
                     visible: !root.stats.isFinished && root.session && root.session.status !== "finished"
                     z: 10
@@ -1544,7 +1615,7 @@ Item {
                     anchors.top: parent.top
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    spacing: 16
+                    spacing: root.scaled(16)
 
                     Repeater {
                       id: wordsRepeater
@@ -1577,7 +1648,7 @@ Item {
                               id: charText
                               text: charBox.cData ? charBox.cData.char : ""
                               font.family: Style.font.family
-                              font.pixelSize: 30
+                              font.pixelSize: root.scaled(30)
                               color: {
                                 root.sessionRevision
                                 if (!charBox.cData) return Util.alpha(Commons.Color.menu.text, 0.60)
@@ -1602,7 +1673,7 @@ Item {
                               return (wData && wData.extra) ? wData.extra[index] : ""
                             }
                             font.family: Style.font.family
-                            font.pixelSize: 30
+                            font.pixelSize: root.scaled(30)
                             font.bold: true
                             color: "#e06c75"
                           }
@@ -1618,7 +1689,7 @@ Item {
                             id: spaceText
                             text: " "
                             font.family: Style.font.family
-                            font.pixelSize: 30
+                            font.pixelSize: root.scaled(30)
                           }
                         }
                       }
@@ -1633,13 +1704,13 @@ Item {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
-                height: 26
+                height: root.scaled(26)
                 visible: root.mode === "quote" && root.session && root.session.quote
 
                 OutlinedText {
                   text: root.session && root.session.quote ? "— " + root.session.quote.source : ""
                   font.family: Style.font.family
-                  font.pixelSize: 14
+                  font.pixelSize: root.scaled(14)
                   font.italic: true
                   color: Util.alpha(Commons.Color.menu.text, 0.55)
                 }
@@ -1667,13 +1738,13 @@ Item {
             Column {
               id: finishedColumn
               anchors.centerIn: parent
-              spacing: 16
+              spacing: root.scaled(16)
 
             OutlinedText {
               anchors.horizontalCenter: parent.horizontalCenter
               text: root.stats.wpm
               font.family: Style.font.family
-              font.pixelSize: 115
+              font.pixelSize: root.scaled(115)
               font.bold: true
               color: root.themeAccent
             }
@@ -1682,7 +1753,7 @@ Item {
               anchors.horizontalCenter: parent.horizontalCenter
               text: "WORDS PER MINUTE"
               font.family: Style.font.family
-              font.pixelSize: 13
+              font.pixelSize: root.scaled(13)
               font.bold: true
               color: Util.alpha(Commons.Color.menu.text, 0.4)
             }
@@ -1692,20 +1763,20 @@ Item {
               visible: root.mode === "quote" && root.stats.quote
               text: root.stats.quote ? "— " + root.stats.quote.source : ""
               font.family: Style.font.family
-              font.pixelSize: 16
+              font.pixelSize: root.scaled(16)
               font.italic: true
               color: Util.alpha(Commons.Color.menu.text, 0.6)
             }
 
             Row {
               anchors.horizontalCenter: parent.horizontalCenter
-              spacing: 32
-              anchors.topMargin: 12
+              spacing: root.scaled(32)
+              anchors.topMargin: root.scaled(12)
 
               OutlinedText {
                 text: root.stats.accuracy + "% accuracy"
                 font.family: Style.font.family
-                font.pixelSize: 18
+                font.pixelSize: root.scaled(18)
                 color: Commons.Color.menu.text
               }
 
@@ -1717,7 +1788,7 @@ Item {
               OutlinedText {
                 text: root.stats.elapsedSeconds + "s time"
                 font.family: Style.font.family
-                font.pixelSize: 18
+                font.pixelSize: root.scaled(18)
                 color: Commons.Color.menu.text
               }
 
@@ -1729,18 +1800,18 @@ Item {
               OutlinedText {
                 text: root.stats.rawWpm + " raw"
                 font.family: Style.font.family
-                font.pixelSize: 18
+                font.pixelSize: root.scaled(18)
                 color: Commons.Color.menu.text
               }
             }
 
-            Item { width: 1; height: 12 }
+            Item { width: 1; height: root.scaled(12) }
 
             OutlinedText {
               anchors.horizontalCenter: parent.horizontalCenter
               text: "tab or enter to restart"
               font.family: Style.font.family
-              font.pixelSize: 13
+              font.pixelSize: root.scaled(13)
               color: Util.alpha(Commons.Color.menu.text, 0.35)
             }
           }
@@ -1760,7 +1831,7 @@ Item {
 
           Column {
             anchors.fill: parent
-            spacing: 20
+            spacing: root.scaled(20)
 
             // 1. Pure Typography Metrics (34px)
             Row {
@@ -1768,72 +1839,72 @@ Item {
 
               Column {
                 width: parent.width / 4
-                spacing: 3
+                spacing: root.scaled(3)
                 OutlinedText {
                   text: root.summary.bestWpm > 0 ? String(root.summary.bestWpm) : "—"
                   font.family: Style.font.family
-                  font.pixelSize: 34
+                  font.pixelSize: root.scaled(34)
                   font.bold: true
                   color: root.themeAccent
                 }
                 OutlinedText {
                   text: "best wpm"
                   font.family: Style.font.family
-                  font.pixelSize: 12
+                  font.pixelSize: root.scaled(12)
                   color: Util.alpha(Commons.Color.menu.text, 0.4)
                 }
               }
 
               Column {
                 width: parent.width / 4
-                spacing: 3
+                spacing: root.scaled(3)
                 OutlinedText {
                   text: root.summary.avgWpm > 0 ? String(root.summary.avgWpm) : "—"
                   font.family: Style.font.family
-                  font.pixelSize: 34
+                  font.pixelSize: root.scaled(34)
                   font.bold: true
                   color: Commons.Color.menu.text
                 }
                 OutlinedText {
                   text: "avg wpm"
                   font.family: Style.font.family
-                  font.pixelSize: 12
+                  font.pixelSize: root.scaled(12)
                   color: Util.alpha(Commons.Color.menu.text, 0.4)
                 }
               }
 
               Column {
                 width: parent.width / 4
-                spacing: 3
+                spacing: root.scaled(3)
                 OutlinedText {
                   text: root.summary.avgAccuracy > 0 ? root.summary.avgAccuracy + "%" : "—"
                   font.family: Style.font.family
-                  font.pixelSize: 34
+                  font.pixelSize: root.scaled(34)
                   font.bold: true
                   color: Commons.Color.menu.text
                 }
                 OutlinedText {
                   text: "accuracy"
                   font.family: Style.font.family
-                  font.pixelSize: 12
+                  font.pixelSize: root.scaled(12)
                   color: Util.alpha(Commons.Color.menu.text, 0.4)
                 }
               }
 
               Column {
                 width: parent.width / 4
-                spacing: 3
+                spacing: root.scaled(3)
                 OutlinedText {
                   text: String(root.summary.totalTests)
                   font.family: Style.font.family
-                  font.pixelSize: 34
+                  font.pixelSize: root.scaled(34)
                   font.bold: true
                   color: Commons.Color.menu.text
                 }
                 OutlinedText {
                   text: "tests completed"
                   font.family: Style.font.family
-                  font.pixelSize: 12
+                  font.pixelSize: root.scaled(12)
                   color: Util.alpha(Commons.Color.menu.text, 0.4)
                 }
               }
@@ -1842,14 +1913,14 @@ Item {
             // 2. Wireframe Chart (Height 175px)
             Item {
               width: parent.width
-              height: 175
+              height: root.scaled(175)
 
               OutlinedText {
                 anchors.centerIn: parent
                 visible: root.history.length < 2
                 text: root.history.length === 0 ? "no test data yet" : "complete 1 more test to draw curve"
                 font.family: Style.font.family
-                font.pixelSize: 13
+                font.pixelSize: root.scaled(13)
                 color: Util.alpha(Commons.Color.menu.text, 0.3)
               }
 
@@ -1954,12 +2025,12 @@ Item {
             // 3. Minimalist Clean Table of Recent Runs
             Column {
               width: parent.width
-              spacing: 8
+              spacing: root.scaled(8)
 
               OutlinedText {
                 text: "recent"
                 font.family: Style.font.family
-                font.pixelSize: 11
+                font.pixelSize: root.scaled(11)
                 color: Util.alpha(Commons.Color.menu.text, 0.35)
               }
 
@@ -1968,45 +2039,45 @@ Item {
 
                 delegate: Item {
                   width: statsViewContainer.width
-                  height: 26
+                  height: root.scaled(26)
 
                   readonly property var hItem: root.history[index]
 
                   Row {
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 20
+                    spacing: root.scaled(20)
 
                     OutlinedText {
                       text: hItem.mode || "time"
                       font.family: Style.font.family
-                      font.pixelSize: 13
+                      font.pixelSize: root.scaled(13)
                       color: Util.alpha(Commons.Color.menu.text, 0.4)
-                      width: 46
+                      width: root.scaled(46)
                     }
 
                     OutlinedText {
                       text: hItem.wpm + " wpm"
                       font.family: Style.font.family
-                      font.pixelSize: 13
+                      font.pixelSize: root.scaled(13)
                       font.bold: true
                       color: Commons.Color.menu.text
-                      width: 64
+                      width: root.scaled(64)
                     }
 
                     OutlinedText {
                       text: hItem.accuracy + "%"
                       font.family: Style.font.family
-                      font.pixelSize: 13
+                      font.pixelSize: root.scaled(13)
                       color: Util.alpha(Commons.Color.menu.text, 0.5)
-                      width: 44
+                      width: root.scaled(44)
                     }
 
                     OutlinedText {
                       visible: hItem.quoteSource && hItem.quoteSource.length > 0
                       text: hItem.quoteSource
                       font.family: Style.font.family
-                      font.pixelSize: 13
+                      font.pixelSize: root.scaled(13)
                       font.italic: true
                       color: Util.alpha(Commons.Color.menu.text, 0.3)
                       elide: Text.ElideRight
@@ -2019,7 +2090,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     text: hItem.elapsedSeconds + "s"
                     font.family: Style.font.family
-                    font.pixelSize: 13
+                    font.pixelSize: root.scaled(13)
                     color: Util.alpha(Commons.Color.menu.text, 0.3)
                   }
                 }
@@ -2137,7 +2208,7 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        height: 48
+        height: root.scaled(48)
         color: (root.bgImageEnabled && root.bgImagePath !== "") ? "transparent" : Util.alpha(Commons.Color.menu.text, 0.02)
         opacity: (root.isTypingActive && !footerHover.containsMouse) ? 0.0 : 1.0
 
@@ -2158,20 +2229,20 @@ Item {
           anchors.top: parent.top
           height: 1
           color: Util.alpha(Commons.Color.menu.text, 0.12)
-          visible: !(root.bgImageEnabled && root.bgImagePath !== "" && root.bgVignette)
+          visible: !(root.bgImageEnabled && root.bgImagePath !== "")
         }
 
         // Left: Omarchy glyph + Branding + subtle shortcut hint
         Row {
           anchors.left: parent.left
-          anchors.leftMargin: 24
+          anchors.leftMargin: root.scaled(24)
           anchors.verticalCenter: parent.verticalCenter
-          spacing: 12
+          spacing: root.scaled(12)
 
           Rectangle {
-            width: 26
-            height: 26
-            radius: 6
+            width: root.scaled(26)
+            height: root.scaled(26)
+            radius: root.scaled(6)
             color: Util.alpha(root.themeAccent, 0.12)
             border.color: Util.alpha(root.themeAccent, 0.35)
             border.width: 1
@@ -2181,7 +2252,7 @@ Item {
               anchors.centerIn: parent
               text: ""
               font.family: "omarchy"
-              font.pixelSize: 14
+              font.pixelSize: root.scaled(14)
               color: root.themeAccent
             }
           }
@@ -2190,14 +2261,14 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text: "Typing Practice"
             font.family: Style.font.family
-            font.pixelSize: 14
+            font.pixelSize: root.scaled(14)
             font.bold: true
             color: Util.alpha(Commons.Color.menu.text, 0.75)
           }
 
           Rectangle {
             width: 1
-            height: 12
+            height: root.scaled(12)
             anchors.verticalCenter: parent.verticalCenter
             color: Util.alpha(Commons.Color.menu.text, 0.1)
           }
@@ -2206,7 +2277,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text: "F1 mode · F2 option · F3 sound · F4 stats · F11 focus · ^I lang · ^, settings"
             font.family: Style.font.family
-            font.pixelSize: 11
+            font.pixelSize: root.scaled(11)
             color: Util.alpha(Commons.Color.menu.text, 0.3)
           }
         }
@@ -2214,33 +2285,33 @@ Item {
         // Right: Key badges (Only essential control actions: Restart & Close)
         Row {
           anchors.right: parent.right
-          anchors.rightMargin: 24
+          anchors.rightMargin: root.scaled(24)
           anchors.verticalCenter: parent.verticalCenter
-          spacing: 14
+          spacing: root.scaled(14)
 
           // Restart Hint
           Item {
             anchors.verticalCenter: parent.verticalCenter
             width: restartHintRow.width
-            height: 26
+            height: root.scaled(26)
 
             Row {
               id: restartHintRow
               anchors.verticalCenter: parent.verticalCenter
-              spacing: 6
+              spacing: root.scaled(6)
 
               OutlinedText {
                 anchors.verticalCenter: parent.verticalCenter
                 text: "Restart"
                 font.family: Style.font.family
-                font.pixelSize: 12
+                font.pixelSize: root.scaled(12)
                 color: restartMouse.containsMouse ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.5)
               }
 
               Rectangle {
-                width: 36
-                height: 22
-                radius: 5
+                width: root.scaled(36)
+                height: root.scaled(22)
+                radius: root.scaled(5)
                 color: restartMouse.containsMouse
                   ? Util.alpha(root.themeAccent, 0.22)
                   : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.85) : Util.alpha(Commons.Color.menu.text, 0.08))
@@ -2253,7 +2324,7 @@ Item {
                   anchors.centerIn: parent
                   text: "Tab"
                   font.family: Style.font.family
-                  font.pixelSize: 11
+                  font.pixelSize: root.scaled(11)
                   font.bold: true
                   color: Commons.Color.menu.text
                 }
@@ -2274,7 +2345,7 @@ Item {
 
           Rectangle {
             width: 1
-            height: 14
+            height: root.scaled(14)
             anchors.verticalCenter: parent.verticalCenter
             color: Util.alpha(Commons.Color.menu.text, 0.12)
           }
@@ -2283,25 +2354,25 @@ Item {
           Item {
             anchors.verticalCenter: parent.verticalCenter
             width: closeHintRow.width
-            height: 26
+            height: root.scaled(26)
 
             Row {
               id: closeHintRow
               anchors.verticalCenter: parent.verticalCenter
-              spacing: 6
+              spacing: root.scaled(6)
 
               OutlinedText {
                 anchors.verticalCenter: parent.verticalCenter
                 text: "Close"
                 font.family: Style.font.family
-                font.pixelSize: 12
+                font.pixelSize: root.scaled(12)
                 color: closeFooterMouse.containsMouse ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.5)
               }
 
               Rectangle {
-                width: 36
-                height: 22
-                radius: 5
+                width: root.scaled(36)
+                height: root.scaled(22)
+                radius: root.scaled(5)
                 color: closeFooterMouse.containsMouse
                   ? Util.alpha(root.themeAccent, 0.22)
                   : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.85) : Util.alpha(Commons.Color.menu.text, 0.08))
@@ -2314,7 +2385,7 @@ Item {
                   anchors.centerIn: parent
                   text: "Esc"
                   font.family: Style.font.family
-                  font.pixelSize: 11
+                  font.pixelSize: root.scaled(11)
                   font.bold: true
                   color: Commons.Color.menu.text
                 }

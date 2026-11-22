@@ -29,6 +29,7 @@ App
   toggle                 Show or hide the typing test overlay
   show | hide            Show or hide the overlay
   focus                  Toggle focus / maximized mode (Shortcut: F11)
+  scale [0.8-2.5]        Set UI scale factor inside window (default: 1.25)
   reset                  Reset the current typing test
   ping                   Ping the IPC target
 
@@ -206,6 +207,7 @@ cmd_config() {
 case "${1:-}" in
   toggle|show|hide|reset) need_shell; ipc "$1" >/dev/null ;;
   focus|focus-toggle) need_shell; ipc toggleFocus ;;
+  scale) shift; need_shell; ipc setScale "${1:-1.25}" ;;
   ping) need_shell; ipc ping ;;
   bg) shift; cmd_bg "${1:-}" ;;
   bg-toggle) need_shell; ipc toggleBackground >/dev/null || cmd_bg ;;
