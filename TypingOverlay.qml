@@ -1112,6 +1112,7 @@ Item {
         maxAlpha: root.bgImageEnabled ? 0.96 : 0.0
         minAlpha: 0.0
         solidSpan: 0.45
+        cornerRadius: card.radius
         opacity: header.opacity
         visible: root.bgImageEnabled
       }
@@ -2270,6 +2271,7 @@ Item {
         maxAlpha: root.bgImageEnabled ? 0.96 : 0.0
         minAlpha: 0.0
         solidSpan: 0.45
+        cornerRadius: card.radius
         opacity: footer.opacity
         visible: root.bgImageEnabled
       }

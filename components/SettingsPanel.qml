@@ -182,6 +182,7 @@ Item {
         maxAlpha: 1.0
         minAlpha: 0.0
         solidSpan: 0.15
+        cornerRadius: surfacePlate.radius
         z: 10
       }
 

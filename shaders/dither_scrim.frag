@@ -15,6 +15,9 @@ layout(std140, binding = 0) uniform buf {
     float colorG;
     float colorB;
     float solidSpan;        // fraction of height that is solid before dithering
+    float cornerRadius;     // corner radius in pixels (0.0 to disable)
+    float itemWidth;        // item width in pixels
+    float itemHeight;       // item height in pixels
 };
 
 // Bayer 8x8 matrix normalized to 0.0 .. 1.0
@@ -30,6 +33,22 @@ const float bayer8[64] = float[64](
 );
 
 void main() {
+    // Exact rounded corner clipping (SDF) to match BorderSurface corner radius
+    float cornerAlpha = 1.0;
+    if (cornerRadius > 0.5 && itemWidth > 1.0 && itemHeight > 1.0) {
+        vec2 pos = qt_TexCoord0 * vec2(itemWidth, itemHeight);
+        float dx = min(pos.x, itemWidth - pos.x);
+        float dy = (direction > 0.5) ? (itemHeight - pos.y) : pos.y;
+        if (dx < cornerRadius && dy < cornerRadius) {
+            vec2 delta = vec2(cornerRadius - dx, cornerRadius - dy);
+            float dist = length(delta) - cornerRadius;
+            if (dist > 0.5) {
+                discard;
+            }
+            cornerAlpha = clamp(0.5 - dist, 0.0, 1.0);
+        }
+    }
+
     float cs = max(cellSize, 1.0);
     int bx = int(mod(floor(gl_FragCoord.x / cs), 8.0));
     int by = int(mod(floor(gl_FragCoord.y / cs), 8.0));
@@ -49,7 +68,7 @@ void main() {
     float dithered = step(bayerVal, grad);
     float factor = mix(grad, dithered, clamp(ditherIntensity, 0.0, 1.0));
 
-    float finalAlpha = mix(minAlpha, maxAlpha, factor) * qt_Opacity;
+    float finalAlpha = mix(minAlpha, maxAlpha, factor) * qt_Opacity * cornerAlpha;
     vec3 rgb = vec3(colorR, colorG, colorB);
     fragColor = vec4(rgb * finalAlpha, finalAlpha);
 }
