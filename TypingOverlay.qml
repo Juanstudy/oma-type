@@ -12,12 +12,14 @@ import "core/Engine.js" as EngineModule
 import "core/History.js" as HistoryModule
 import "core/Settings.js" as SettingsModule
 import "core/Keys.js" as KeysModule
+import "core/Bench.js" as BenchModule
 import "components"
 
 Item {
   id: root
 
   property bool opened: false
+  property bool isBenchmarking: false
   property string activeView: "test" // "test" | "stats" | "settings"
   property string mode: "quote" // "quote" | "time" | "words"
   property string quoteLength: "short" // "short" | "medium"
@@ -374,7 +376,7 @@ Item {
   }
 
   function playKeySound() {
-    if (root.soundTheme === "off") return
+    if (root.isBenchmarking || root.soundTheme === "off") return
     var now = Date.now()
     if (now - root.lastSoundTime < 35) return
     root.lastSoundTime = now
@@ -426,7 +428,7 @@ Item {
     if (!root.session) return
     root.stats = EngineModule.calculateStats(root.session, Date.now())
 
-    if (root.stats.isFinished && !root.recordedCurrent) {
+    if (root.stats.isFinished && !root.recordedCurrent && !root.isBenchmarking) {
       root.recordFinishedTest()
     }
   }
@@ -458,6 +460,7 @@ Item {
   }
 
   function recordFinishedTest() {
+    if (root.isBenchmarking) return
     root.recordedCurrent = true
     var entry = HistoryModule.createEntry(root.stats, root.mode)
     root.history = HistoryModule.addEntry(root.history, entry, 200)
@@ -630,6 +633,66 @@ Item {
 
     function ping(): string {
       return "ok"
+    }
+
+    function bench(samplesStr: string): string {
+      var n = parseInt(samplesStr, 10)
+      if (isNaN(n) || n <= 0) n = 100
+      if (n > 5000) n = 5000
+
+      root.isBenchmarking = true
+      try {
+        root.resetTest()
+
+        var keys = []
+        if (root.session && root.session.words) {
+          for (var w = 0; w < root.session.words.length && keys.length < n; w++) {
+            var wordText = root.session.words[w].text
+            for (var c = 0; c < wordText.length && keys.length < n; c++) {
+              keys.push(wordText[c])
+            }
+            if (keys.length < n) keys.push(" ")
+          }
+        }
+        while (keys.length < n) {
+          keys.push("a")
+        }
+
+        var getNow = (typeof performance !== "undefined" && typeof performance.now === "function")
+          ? function() { return performance.now() }
+          : function() { return Date.now() }
+
+        var latencies = []
+        var tStart = getNow()
+
+        for (var i = 0; i < n; i++) {
+          var k = keys[i]
+          var t0 = getNow()
+
+          EngineModule.handleKey(root.session, k, Date.now())
+          root.sessionRevision++
+          root.updateStats()
+          root.updateCaretPosition()
+
+          var t1 = getNow()
+          latencies.push(t1 - t0)
+        }
+
+        var tEnd = getNow()
+        var totalMs = tEnd - tStart
+
+        var metrics = BenchModule.analyzeResults({
+          target: "UI Dispatch (State + Bindings + Caret)",
+          count: n,
+          totalMs: totalMs,
+          latencies: latencies
+        })
+
+        root.resetTest()
+        return BenchModule.formatReport(metrics)
+      } finally {
+        root.isBenchmarking = false
+      }
     }
 
     function setBackground(path: string): string {
