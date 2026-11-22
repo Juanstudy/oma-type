@@ -1,8 +1,8 @@
 # Gentleman Guardian Angel Configuration
 # https://github.com/Gentleman-Programming/gentleman-guardian-angel
 
-# AI Provider
-PROVIDER="gemini"
+# AI Provider (OpenCode with free model)
+PROVIDER="opencode:opencode/deepseek-v4.1-flash-free"
 
 # File patterns to review (comma-separated globs)
 FILE_PATTERNS="*.js,*.qml,*.json,*.sh,bin/*"
