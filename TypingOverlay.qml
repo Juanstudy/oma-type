@@ -56,6 +56,30 @@ Item {
   property bool settingsLoaded: false
   property string pendingAccent: ""
   property bool focusPrimed: false
+  property bool isMaximized: false
+  property real cardCustomWidth: 1080
+  property real cardCustomHeight: 640
+  property real cardOffsetX: 0
+  property real cardOffsetY: 0
+  property bool isDraggingWindow: false
+  property bool isResizingWindow: false
+
+  function toggleMaximize() {
+    root.isMaximized = !root.isMaximized
+    root.showToast(root.isMaximized ? "Focus Mode: On" : "Focus Mode: Off")
+    Qt.callLater(function() {
+      root.updateCaretPosition()
+      keyCatcher.forceActiveFocus()
+    })
+  }
+
+  function resetWindowPosition() {
+    root.isMaximized = false
+    root.cardCustomWidth = 1080
+    root.cardCustomHeight = 640
+    root.cardOffsetX = 0
+    root.cardOffsetY = 0
+  }
   // Resolve relative to this QML file (repo root) so the plugin works through
   // the omarchy plugins symlink without a hardcoded home path. Must stay a raw
   // filesystem path: the consumer is pw-play, not an Audio element.
@@ -82,6 +106,11 @@ Item {
     root.focusPrimed = false
     focusPrimeTimer.restart()
     root.activeView = "test"
+    root.isMaximized = false
+    root.cardCustomWidth = 1080
+    root.cardCustomHeight = 640
+    root.cardOffsetX = 0
+    root.cardOffsetY = 0
     root.resetTest()
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
   }
@@ -90,6 +119,11 @@ Item {
     focusPrimeTimer.stop()
     root.focusPrimed = false
     root.opened = false
+    root.isMaximized = false
+    root.cardCustomWidth = 1080
+    root.cardCustomHeight = 640
+    root.cardOffsetX = 0
+    root.cardOffsetY = 0
   }
 
   function toggle() {
@@ -478,6 +512,16 @@ Item {
       return root.opened ? "true" : "false"
     }
 
+    function toggleFocus(): string {
+      root.toggleMaximize()
+      return root.isMaximized ? "maximized" : "restored"
+    }
+
+    function resetPosition(): string {
+      root.resetWindowPosition()
+      return "ok"
+    }
+
     function reset(): string {
       root.resetTest()
       return "ok"
@@ -553,32 +597,89 @@ Item {
       }
     }
 
-    // Scrim backdrop with smooth fade-in
-    Rectangle {
+    Item {
+      id: overlayContainer
       anchors.fill: parent
-      color: "#000000"
-      opacity: root.opened ? 0.72 : 0.0
 
-      Behavior on opacity {
-        NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
-      }
-
-      MouseArea {
+      // Scrim backdrop with smooth fade-in
+      Rectangle {
         anchors.fill: parent
-        onClicked: root.close()
-      }
-    }
+        color: "#000000"
+        opacity: root.opened ? (root.isMaximized ? 0.0 : 0.72) : 0.0
 
-    // Centered card (Scaled 1.25x: 1080×640)
-    BorderSurface {
-      id: card
-      width: Math.min(1080, parent.width - Style.space(32))
-      height: Math.min(640, parent.height - Style.space(32))
-      anchors.centerIn: parent
-      radius: Math.max(Style.cornerRadius, 14)
-      color: Commons.Color.menu.background
-      borderSpec: Border.surfaceSpec("menu", "border", Commons.Color.menu.border, 1)
-      clip: true
+        Behavior on opacity {
+          NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          enabled: !root.isMaximized
+          onClicked: root.close()
+        }
+      }
+
+      // Centered card (Scaled 1.25x: 1080×640, Resizable, or Fullscreen Focus Mode)
+      BorderSurface {
+        id: card
+        width: root.isMaximized ? overlayContainer.width : Math.min(root.cardCustomWidth, overlayContainer.width - Style.space(32))
+        height: root.isMaximized ? overlayContainer.height : Math.min(root.cardCustomHeight, overlayContainer.height - Style.space(32))
+
+        x: root.isMaximized ? 0 : Math.round(Math.max(16, Math.min(overlayContainer.width - width - 16, (overlayContainer.width - width) / 2 + root.cardOffsetX)))
+        y: root.isMaximized ? 0 : Math.round(Math.max(16, Math.min(overlayContainer.height - height - 16, (overlayContainer.height - height) / 2 + root.cardOffsetY)))
+
+        property real cardOffsetX: root.cardOffsetX
+        property real cardOffsetY: root.cardOffsetY
+
+        radius: root.isMaximized ? 0 : Math.max(Style.cornerRadius, 14)
+        color: Commons.Color.menu.background
+        borderSpec: Border.surfaceSpec("menu", "border", Commons.Color.menu.border, root.isMaximized ? 0 : 1)
+        clip: true
+
+        Behavior on x {
+          enabled: !root.isDraggingWindow && !root.isResizingWindow
+          NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+        }
+        Behavior on y {
+          enabled: !root.isDraggingWindow && !root.isResizingWindow
+          NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+        }
+        Behavior on width {
+          enabled: !root.isResizingWindow
+          NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+        }
+        Behavior on height {
+          enabled: !root.isResizingWindow
+          NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+        }
+        Behavior on radius {
+          NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+        }
+
+        onWidthChanged: {
+          if (root.opened) {
+            Qt.callLater(root.updateCaretPosition)
+          }
+        }
+
+        ResizeHandles {
+          id: resizeHandles
+          targetCard: card
+          overlay: overlayContainer
+          enabled: !root.isMaximized
+          onResizingChanged: root.isResizingWindow = resizing
+          onUpdateDimensions: function(newW, newH, newOffX, newOffY) {
+            root.cardCustomWidth = newW
+            root.cardCustomHeight = newH
+            root.cardOffsetX = newOffX
+            root.cardOffsetY = newOffY
+          }
+          onResizeCommitted: {
+            Qt.callLater(function() {
+              root.updateCaretPosition()
+              keyCatcher.forceActiveFocus()
+            })
+          }
+        }
 
       DitheredBackground {
         anchors.fill: parent
@@ -704,6 +805,13 @@ Item {
           // Ctrl+Comma: Toggle Settings panel
           if (isCtrl && event.key === Qt.Key_Comma) {
             root.activeView = (root.activeView === "settings") ? "test" : "settings"
+            event.accepted = true
+            return
+          }
+
+          // F11 or Ctrl+Shift+M: Toggle Focus / Maximized Mode
+          if (event.key === Qt.Key_F11 || (isCtrl && (event.modifiers & Qt.ShiftModifier) && event.key === Qt.Key_M)) {
+            root.toggleMaximize()
             event.accepted = true
             return
           }
@@ -916,17 +1024,60 @@ Item {
         height: 64
         anchors.leftMargin: 24
         anchors.rightMargin: 24
-        opacity: (root.isTypingActive && !headerHover.containsMouse) ? 0.0 : 1.0
+        opacity: (root.isTypingActive && !headerDragArea.containsMouse) ? 0.0 : 1.0
 
         Behavior on opacity {
           NumberAnimation { duration: 240; easing.type: Easing.OutCubic }
         }
 
         MouseArea {
-          id: headerHover
+          id: headerDragArea
           anchors.fill: parent
           hoverEnabled: true
-          acceptedButtons: Qt.NoButton
+          acceptedButtons: Qt.LeftButton
+          cursorShape: root.isMaximized ? Qt.ArrowCursor : (root.isDraggingWindow ? Qt.ClosedHandCursor : Qt.OpenHandCursor)
+
+          property real startGlobalX: 0
+          property real startGlobalY: 0
+          property real startOffsetX: 0
+          property real startOffsetY: 0
+
+          onPressed: function(mouse) {
+            if (root.isMaximized || !overlayContainer) return
+            var p = mapToItem(overlayContainer, mouse.x, mouse.y)
+            startGlobalX = p.x
+            startGlobalY = p.y
+            startOffsetX = root.cardOffsetX
+            startOffsetY = root.cardOffsetY
+            root.isDraggingWindow = true
+          }
+
+          onPositionChanged: function(mouse) {
+            if (!root.isDraggingWindow || root.isMaximized || !overlayContainer) return
+            var p = mapToItem(overlayContainer, mouse.x, mouse.y)
+            var dx = p.x - startGlobalX
+            var dy = p.y - startGlobalY
+
+            var maxOffsetX = Math.max(0, (overlayContainer.width - card.width) / 2 - 16)
+            var maxOffsetY = Math.max(0, (overlayContainer.height - card.height) / 2 - 16)
+
+            root.cardOffsetX = Math.max(-maxOffsetX, Math.min(maxOffsetX, startOffsetX + dx))
+            root.cardOffsetY = Math.max(-maxOffsetY, Math.min(maxOffsetY, startOffsetY + dy))
+          }
+
+          onReleased: function() {
+            root.isDraggingWindow = false
+            Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+          }
+
+          onCanceled: function() {
+            root.isDraggingWindow = false
+            Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+          }
+
+          onDoubleClicked: function() {
+            root.toggleMaximize()
+          }
         }
 
         // Top-Left: Back button
@@ -1210,6 +1361,42 @@ Item {
             color: Util.alpha(Commons.Color.menu.text, 0.12)
           }
 
+          // Maximize / Focus mode button (⤢ / ⤡)
+          Rectangle {
+            id: maximizeBtn
+            width: 28
+            height: 28
+            radius: 6
+            anchors.verticalCenter: parent.verticalCenter
+            color: maximizeMouse.containsMouse
+              ? Util.alpha(Commons.Color.menu.background, 0.95)
+              : (root.isMaximized
+                  ? Util.alpha(root.themeAccent, 0.2)
+                  : (root.bgImageEnabled ? Util.alpha(Commons.Color.menu.background, 0.75) : "transparent"))
+            border.color: root.isMaximized ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.18)
+            border.width: 1
+
+            OutlinedText {
+              anchors.centerIn: parent
+              text: root.isMaximized ? "⤡" : "⤢"
+              font.family: Style.font.family
+              font.pixelSize: 13
+              font.bold: true
+              color: (maximizeMouse.containsMouse || root.isMaximized) ? root.themeAccent : Util.alpha(Commons.Color.menu.text, 0.5)
+            }
+
+            MouseArea {
+              id: maximizeMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                root.toggleMaximize()
+                keyCatcher.forceActiveFocus()
+              }
+            }
+          }
+
           // Close button (✕)
           Rectangle {
             id: closeBtn
@@ -1305,8 +1492,8 @@ Item {
               id: centeredTypingBox
               z: 1
               anchors.centerIn: parent
-              width: Math.min(960, parent.width)
-              height: 310
+              width: Math.min(root.isMaximized ? 1160 : 960, parent.width)
+              height: root.isMaximized ? Math.min(460, parent.height - 40) : 310
 
               Flickable {
                 id: wordsFlickable
@@ -2017,7 +2204,7 @@ Item {
 
           OutlinedText {
             anchors.verticalCenter: parent.verticalCenter
-            text: "F1 mode · F2 option · F3 sound · F4 stats · ^I lang · ^, settings"
+            text: "F1 mode · F2 option · F3 sound · F4 stats · F11 focus · ^I lang · ^, settings"
             font.family: Style.font.family
             font.pixelSize: 11
             color: Util.alpha(Commons.Color.menu.text, 0.3)
@@ -2146,4 +2333,5 @@ Item {
       }
     }
   }
+}
 }
