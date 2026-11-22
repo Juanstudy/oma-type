@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Synthetic stress benchmark suite (`bin/oma-type bench [samples]` and `npm run bench` via `core/Bench.js` and `scripts/bench.js`) measuring keystroke dispatch latency, percentiles (p50, p95, p99), and throughput with full side-effect isolation (history clean, audio muted).
+
 ### Fixed
 - Fixed straight 90-degree corners in idle state by adding SDF corner radius clipping to dithered scrims.
 
