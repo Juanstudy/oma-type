@@ -3,6 +3,11 @@ node_modules/
 .atl/
 *.log
 
+# Environment & secrets
+.env
+.env.*
+*.env
+
 # System & editor files
 .DS_Store
 Thumbs.db

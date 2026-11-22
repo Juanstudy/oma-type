@@ -1,0 +1,26 @@
+name: Guardian Angel Review
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  review:
+    name: Architecture & Standards Review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Gentleman Guardian Angel
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/Gentleman-Programming/gentleman-guardian-angel/main/install.sh | bash
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Run Guardian Angel
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          gga run --pr-mode

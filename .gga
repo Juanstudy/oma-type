@@ -1,0 +1,14 @@
+# Gentleman Guardian Angel Configuration
+# https://github.com/Gentleman-Programming/gentleman-guardian-angel
+
+# AI Provider
+PROVIDER="gemini"
+
+# File patterns to review (comma-separated globs)
+FILE_PATTERNS="*.js,*.qml,*.json,*.sh,bin/*"
+
+# Rules specification file
+RULES_FILE="AGENTS.md"
+
+# Strict mode: fail on ambiguity
+STRICT_MODE="false"
